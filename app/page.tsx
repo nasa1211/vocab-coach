@@ -33,6 +33,10 @@ export default function HomePage() {
 
   const supabase = createClient();
 
+  // 1. 컴포넌트 상단 state 목록에 이미 나온 단어 이력(history) 상태 추가
+  const [history, setHistory] = useState<string[]>([SAMPLE_WORD.word]);
+
+
   // 1. 초기 세션 체크 및 로그인 상태 변경 리스너 등록
   useEffect(() => {
     // 현재 세션 가져오기
@@ -64,53 +68,62 @@ export default function HomePage() {
     setUser(null);
   };
 
-  // 2. 학습 완료 & 다음 단어 불러오기
-  const handleFetchNextWord = async () => {
-    setLoading(true);
-    setToastMessage(null);
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
+// 2. handleFetchNextWord 함수 수정
+const handleFetchNextWord = async () => {
+  setLoading(true);
+  setToastMessage(null);
 
-      // [A] 로그인한 사용자만 출석 체크 API 실행 (비로그인 시 건너뜀)
-      if (session?.access_token) {
-        const attendRes = await fetch('/api/attendance', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        });
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
 
-        if (attendRes.ok) {
-          const attendData = await attendRes.json();
-          if (attendData.success) {
-            setToastMessage(`🎉 오늘 학습 완료! ${attendData.current_streak}일 연속 학습 중!`);
-          }
-        } else {
-          const errorData = await attendRes.json();
-          console.error('출석 체크 실패:', errorData);
-        }
-      }
-
-      // [B] 로그인 여부와 관계없이 게스트도 무조건 AI 단어 추천 실행
-      const wordRes = await fetch('/api/generate-word', {
+    // [A] 로그인한 사용자만 출석 체크 API 실행
+    if (session?.access_token) {
+      const attendRes = await fetch('/api/attendance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ word: 'Leverage', category: 'Business' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
       });
 
-      if (wordRes.ok) {
-        const newWord = await wordRes.json();
-        setWordData(newWord);
+      if (attendRes.ok) {
+        const attendData = await attendRes.json();
+        if (attendData.success) {
+          setToastMessage(`🎉 오늘 학습 완료! ${attendData.current_streak}일 연속 학습 중!`);
+        }
+      } else {
+        const errorData = await attendRes.json();
+        console.error('출석 체크 실패:', errorData);
       }
-    } catch (err) {
-      console.error('학습 및 단어 불러오기 실패:', err);
-    } finally {
-      setLoading(false);
-      setTimeout(() => setToastMessage(null), 3000);
     }
-  };
+
+    // [B] 무작위 신규 AI 단어 추천 요청 (word 하드코딩 제거 및 히스토리 전달)
+    const wordRes = await fetch('/api/generate-word', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        category: 'Business',
+        excludeHistory: history // 👈 최근 나온 단어 목록을 전달하여 중복 방지
+      }),
+    });
+
+    if (wordRes.ok) {
+      const newWord: WordData = await wordRes.json();
+      setWordData(newWord);
+
+      // 새로운 단어를 히스토리에 추가 (최근 10개까지 관리)
+      if (newWord.word) {
+        setHistory((prev) => [...prev.slice(-9), newWord.word]);
+      }
+    }
+  } catch (err) {
+    console.error('학습 및 단어 불러오기 실패:', err);
+  } finally {
+    setLoading(false);
+    setTimeout(() => setToastMessage(null), 3000);
+  }
+};
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 py-8 px-4 flex flex-col items-center justify-center gap-5 relative">

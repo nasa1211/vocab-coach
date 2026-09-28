@@ -38,14 +38,8 @@ function safeJsonParse(rawText: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { word, category = "business" } = await req.json();
-
-    if (!word) {
-      return NextResponse.json(
-        { error: "학습할 단어가 입력되지 않았습니다." },
-        { status: 400 }
-      );
-    }
+    const body = await req.json().catch(() => ({}));
+    const { word, category = "business", excludeHistory = [] } = body;
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -58,9 +52,20 @@ export async function POST(req: NextRequest) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
 
+    // 단어 지정 여부에 따른 프롬프트 분기
+    const targetInstruction = word
+      ? `요청된 단어("${word}")와 카테고리("${category}")에 맞추어 답변하세요.`
+      : `카테고리("${category}")에 속하는, 바쁜 직장인에게 유용한 **실전 영단어나 숙어(Idiom) 1개**를 직접 선정하여 답변하세요.`;
+
+    const excludeInstruction =
+      !word && Array.isArray(excludeHistory) && excludeHistory.length > 0
+        ? `\n[제외할 단어 목록]\n다음 단어들은 이미 학습했으므로 절대로 선택하지 마세요: ${excludeHistory.join(", ")}\n`
+        : "";
+
     const prompt = `
 당신은 바쁜 성인을 위한 실전 영단어 AI 멘토입니다.
-요청된 단어("${word}")와 카테고리("${category}")에 맞추어 오직 순수 JSON 형식으로만 답변하세요. 다른 설명이나 마크다운 백틱(\`\`\`json)은 절대로 포함하지 마세요.
+${targetInstruction}${excludeInstruction}
+오직 순수 JSON 형식으로만 답변하세요. 다른 설명이나 마크다운 백틱(\`\`\`json)은 절대로 포함하지 마세요.
 
 ==================================================
 [성인 학습자 콘텐츠 제공 원칙]
@@ -73,7 +78,7 @@ export async function POST(req: NextRequest) {
 [JSON 반환 스키마]
 ==================================================
 {
-  "word": "${word}",
+  "word": "단어 또는 숙어명",
   "phonetic": "발음기호 (예: /fəʊkəs/)",
   "meaning": "핵심 한글 뜻",
   "category": "${category}",
