@@ -8,14 +8,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '이미지 데이터가 없습니다.' }, { status: 400 });
     }
 
-    // Google Gemini Flash (Vision 지원) API 호출
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다.' }, { status: 500 });
     }
 
-    const base64Data = imageBase64.split(',')[1] || imageBase64;
+    // 1. Data URL에서 동적으로 MIME Type 및 순수 Base64 데이터 추출
+    let mimeType = 'image/jpeg';
+    let base64Data = imageBase64;
 
+    if (imageBase64.includes(';base64,')) {
+      const parts = imageBase64.split(';base64,');
+      mimeType = parts[0].replace('data:', '') || 'image/jpeg';
+      base64Data = parts[1];
+    }
+
+    // 2. Gemini API 호출 (1.5-flash)
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
@@ -27,7 +35,7 @@ export async function POST(req: Request) {
               parts: [
                 {
                   inline_data: {
-                    mime_type: 'image/jpeg',
+                    mime_type: mimeType,
                     data: base64Data,
                   },
                 },
@@ -58,24 +66,34 @@ Respond STRICTLY in JSON format matching this schema:
           ],
           generationConfig: {
             response_mime_type: 'application/json',
+            temperature: 0.2, // OCR 및 규격 추출을 위해 낮은 temperature 권장
           },
         }),
       }
     );
 
     const result = await response.json();
+
+    // 3. HTTP 응답 상태 및 Gemini API 내부 에러 체크
+    if (!response.ok) {
+      console.error('❌ [Gemini API HTTP Error]:', response.status, JSON.stringify(result, null, 2));
+      throw new Error(`Gemini API Error (${response.status}): ${result.error?.message || 'Unknown error'}`);
+    }
+
     const textResult = result.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!textResult) {
-      throw new Error('AI 응답 생성 실패');
+      console.error('❌ [Gemini API No Candidate Error]:', JSON.stringify(result, null, 2));
+      throw new Error('AI가 이미지에서 단어를 추출하지 못했거나 안전 필터에 의해 차단되었습니다.');
     }
 
     const wordData = JSON.parse(textResult);
-    return NextResponse.json(wordData);
+    return NextResponse.json(wordData, { status: 200 });
+
   } catch (error: any) {
-    console.error('OCR 단어 생성 오류:', error);
+    console.error('❌ [OCR API Handler Exception]:', error.message || error);
     return NextResponse.json(
-      { error: '이미지에서 단어를 추출하지 못했습니다.' },
+      { error: error.message || '이미지에서 단어를 추출하지 못했습니다.' },
       { status: 500 }
     );
   }
