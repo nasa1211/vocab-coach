@@ -32,12 +32,54 @@ export default function WordCard({ data, onNext }: WordCardProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
 
-  // 음성 재생 (브라우저 기본 TTS 활용)
+  // 💡 개선된 음성 재생 (TTS) 함수
   const handlePlayAudio = () => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(data.word);
-      utterance.lang = 'en-US';
+    if (!('speechSynthesis' in window)) {
+      alert('이 브라우저는 음성 재생을 지원하지 않습니다.');
+      return;
+    }
+
+    // 이전 재생 취소 (중복 방지)
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(data.word);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.9;   // 속도: 약간 천천히 (자연스러운 학습용)
+    utterance.pitch = 1.15; // 💡 톤 높이기: 저음/할아버지 목소리 현상 해결
+
+    const playWithBestVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+
+      if (voices.length > 0) {
+        // 영어 음성 중 자연스러운 고품질/여성 음성 우선 검색
+        const preferredVoice = voices.find(
+          (v) =>
+            v.lang.startsWith('en') &&
+            (v.name.includes('Google') ||
+              v.name.includes('Samantha') ||
+              v.name.includes('Victoria') ||
+              v.name.includes('Natural') ||
+              v.name.includes('Female') ||
+              v.name.includes('Karen'))
+        );
+
+        if (preferredVoice) {
+          utterance.voice = preferredVoice;
+        }
+      }
+
       window.speechSynthesis.speak(utterance);
+    };
+
+    // 음성 목록(voices)이 비동기로 로드되는 브라우저 대응
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length === 0) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        playWithBestVoice();
+        window.speechSynthesis.onvoiceschanged = null;
+      };
+    } else {
+      playWithBestVoice();
     }
   };
 
