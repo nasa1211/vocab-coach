@@ -1,57 +1,70 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+// 1. Supabase 클라이언트 초기화
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// 2. Gemini fallback 모델 목록
 const CANDIDATE_MODELS = [
   "gemini-3.7-flash",       // 1순위: 최신 초고속 모델
   "gemini-3.6-flash",       // 2순위: 대체 Flash 모델
   "gemini-3.5-flash",       // 3순위: 검증된 백업 Flash 모델
   "gemini-3.1-pro-preview", // 4순위: 고성능 추론 모델
   "gemini-2.5-pro",         // 5순위: 비상용 안정 버전
+  "gemini-1.5-flash",
+  "gemini-1.5-pro",
 ];
-
-// 안전한 JSON 파싱 함수
-function safeJsonParse(rawText: string) {
-  let cleanText = rawText.trim();
-
-  cleanText = cleanText.replace(/```json/gi, "").replace(/```/g, "").trim();
-
-  const firstBrace = cleanText.indexOf("{");
-  const lastBrace = cleanText.lastIndexOf("}");
-  if (firstBrace !== -1 && lastBrace !== -1) {
-    cleanText = cleanText.substring(firstBrace, lastBrace + 1);
-  }
-
-  try {
-    return JSON.parse(cleanText);
-  } catch (initialError) {
-    const fixedText = cleanText
-      .replace(/\n/g, "\\n")
-      .replace(/\r/g, "\\r")
-      .replace(/\t/g, "\\t");
-
-    return JSON.parse(fixedText);
-  }
-}
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const { word, category = "business", excludeHistory = [] } = body;
 
+    const historyList = Array.isArray(excludeHistory) ? excludeHistory.filter(Boolean) : [];
+
+    // ------------------------------------------------------------------
+    // STEP 1. Supabase DB에서 우선 조회 (0.01초 초고속 반환)
+    // ------------------------------------------------------------------
+    let query = supabase.from("words").select("*");
+
+    if (word) {
+      // 특정 단어가 지정된 경우
+      query = query.eq("word", word);
+    } else {
+      // 카테고리 필터링
+      if (category) {
+        query = query.eq("category", category);
+      }
+      // 이미 학습한 단어 제외
+      if (historyList.length > 0) {
+        query = query.not("word", "in", `(${historyList.map((w) => `"${w}"`).join(",")})`);
+      }
+    }
+
+    const { data: dbWords, error: dbError } = await query.limit(20);
+
+    if (!dbError && dbWords && dbWords.length > 0) {
+      // 랜덤으로 1개 선택하여 반환
+      const randomWord = dbWords[Math.floor(Math.random() * dbWords.length)];
+      return NextResponse.json(randomWord, { status: 200 });
+    }
+
+    // ------------------------------------------------------------------
+    // STEP 2. DB에 조건에 맞는 단어가 없을 경우 Gemini API로 실시간 생성 (Fallback)
+    // ------------------------------------------------------------------
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.error("❌ [API ERROR] GEMINI_API_KEY가 Vercel 환경변수에 설정되지 않았습니다.");
       return NextResponse.json(
-        { error: "GEMINI_API_KEY 환경변수가 설정되지 않았습니다." },
+        { error: "DB에서 단어를 찾지 못했으나 GEMINI_API_KEY가 설정되지 않았습니다." },
         { status: 500 }
       );
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
 
-    // 1. 제외 목록 프롬프트 강하게 명시
-    const historyList = Array.isArray(excludeHistory) ? excludeHistory.filter(Boolean) : [];
-    
     const targetInstruction = word
       ? `요청된 단어("${word}")와 카테고리("${category}")에 맞추어 답변하세요.`
       : `카테고리("${category}")에 속하는, 직장인에게 실용적인 비즈니스 영단어나 숙어(Idiom) 중 **이전과 겹치지 않는 새로운 표현 1개**를 랜덤하게 선택하여 답변하세요.`;
@@ -64,7 +77,6 @@ export async function POST(req: NextRequest) {
     const prompt = `
 당신은 바쁜 성인을 위한 실전 영단어 AI 멘토입니다.
 ${targetInstruction}${excludeInstruction}
-오직 순수 JSON 형식으로만 답변하세요. 다른 설명이나 마크다운 백틱(\`\`\`json)은 절대로 포함하지 마세요.
 
 ==================================================
 [성인 학습자 콘텐츠 제공 원칙]
@@ -94,18 +106,17 @@ ${targetInstruction}${excludeInstruction}
 }
 `;
 
-    let lastError: any = null;
     let parsedData = null;
+    let lastError: any = null;
 
-    // CANDIDATE_MODELS 순차적 시도
     for (const modelName of CANDIDATE_MODELS) {
       try {
         const model = genAI.getGenerativeModel({
           model: modelName,
-          // 💡 핵심: temperature를 올려 AI가 창의적이고 다양하게 단어를 추출하도록 설정
           generationConfig: {
             temperature: 0.9,
             topP: 0.95,
+            responseMimeType: "application/json", // JSON 모드 강제 적용
           },
         });
 
@@ -113,16 +124,14 @@ ${targetInstruction}${excludeInstruction}
         const responseText = result.response.text();
 
         if (responseText) {
-          parsedData = safeJsonParse(responseText);
+          parsedData = JSON.parse(responseText);
 
-          // 만약 AI가 실수로 excludeHistory에 들어있는 단어를 그대로 뽑았다면 차단
           if (!word && historyList.map((w: string) => w.toLowerCase()).includes(parsedData?.word?.toLowerCase())) {
-            console.warn(`⚠️ [중복 단어 차단] ${parsedData.word} 단어가 재추천되어 재시도합니다.`);
             parsedData = null;
             continue;
           }
 
-          break; // 성공 시 루프 탈출
+          break;
         }
       } catch (err: any) {
         console.warn(`⚠️ [Gemini Fallback Warning] ${modelName} 호출 실패:`, err?.message || err);
@@ -131,14 +140,14 @@ ${targetInstruction}${excludeInstruction}
     }
 
     if (!parsedData) {
-      console.error("❌ [API ERROR] 모든 Gemini 모델 생성 연쇄 실패 또는 중복 차단:", lastError?.message || lastError);
       return NextResponse.json(
         { error: "단어 분석 생성 실패", details: lastError?.message || "All models failed" },
         { status: 500 }
       );
     }
 
-    return NextResponse.json(parsedData);
+    return NextResponse.json(parsedData, { status: 200 });
+
   } catch (error: any) {
     console.error("❌ [API ERROR] /api/generate-word 예외 발생:", error?.message || error);
     return NextResponse.json(

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import WordCard, { WordData } from '@/components/WordCard';
 import PushSubscriptionButton from '@/components/PushSubscriptionButton';
 import ImageWordUploader from '@/components/ImageWordUploader';
@@ -27,19 +27,74 @@ const SAMPLE_WORD: WordData = {
 
 export default function HomePage() {
   const [wordData, setWordData] = useState<WordData>(SAMPLE_WORD);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true); // initial load 시 뼈대 로딩 처리
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [history, setHistory] = useState<string[]>([]);
 
   const supabase = createClient();
 
-  // 1. 컴포넌트 상단 state 목록에 이미 나온 단어 이력(history) 상태 추가
-  const [history, setHistory] = useState<string[]>([SAMPLE_WORD.word]);
+  // 1. 다음 단어 불러오기 (초기 로딩 및 '다음' 버튼 클릭 공용)
+  const handleFetchNextWord = useCallback(async (isInitial = false) => {
+    setLoading(true);
+    if (!isInitial) setToastMessage(null);
 
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
 
-  // 1. 초기 세션 체크 및 로그인 상태 변경 리스너 등록
+      // [A] 로그인한 사용자이고, '다음' 버튼 클릭 시 출석 체크 API 실행
+      if (!isInitial && session?.access_token) {
+        const attendRes = await fetch('/api/attendance', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (attendRes.ok) {
+          const attendData = await attendRes.json();
+          if (attendData.success) {
+            setToastMessage(`🎉 오늘 학습 완료! ${attendData.current_streak}일 연속 학습 중!`);
+          }
+        } else {
+          const errorData = await attendRes.json();
+          console.error('출석 체크 실패:', errorData);
+        }
+      }
+
+      // [B] Supabase DB / Gemini API에서 단어 가져오기
+      const wordRes = await fetch('/api/generate-word', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          category: 'business',
+          excludeHistory: history
+        }),
+      });
+
+      if (wordRes.ok) {
+        const newWord: WordData = await wordRes.json();
+        setWordData(newWord);
+
+        // 히스토리에 새 단어 추가 (최근 10개 관리)
+        if (newWord.word) {
+          setHistory((prev) => [...prev.slice(-9), newWord.word]);
+        }
+      }
+    } catch (err) {
+      console.error('학습 및 단어 불러오기 실패:', err);
+    } finally {
+      setLoading(false);
+      if (!isInitial) {
+        setTimeout(() => setToastMessage(null), 3000);
+      }
+    }
+  }, [history, supabase.auth]);
+
+  // 2. 초기 세션 체크 & 첫 단어 자동 조회
   useEffect(() => {
-    // 현재 세션 가져오기
+    // 세션 가져오기
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
     });
@@ -48,6 +103,9 @@ export default function HomePage() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
+
+    // 첫 페이지 진입 시 DB에서 첫 단어 즉시 로드
+    handleFetchNextWord(true);
 
     return () => subscription.unsubscribe();
   }, []);
@@ -67,63 +125,6 @@ export default function HomePage() {
     await supabase.auth.signOut();
     setUser(null);
   };
-
-
-// 2. handleFetchNextWord 함수 수정
-const handleFetchNextWord = async () => {
-  setLoading(true);
-  setToastMessage(null);
-
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-
-    // [A] 로그인한 사용자만 출석 체크 API 실행
-    if (session?.access_token) {
-      const attendRes = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (attendRes.ok) {
-        const attendData = await attendRes.json();
-        if (attendData.success) {
-          setToastMessage(`🎉 오늘 학습 완료! ${attendData.current_streak}일 연속 학습 중!`);
-        }
-      } else {
-        const errorData = await attendRes.json();
-        console.error('출석 체크 실패:', errorData);
-      }
-    }
-
-    // [B] 무작위 신규 AI 단어 추천 요청 (word 하드코딩 제거 및 히스토리 전달)
-    const wordRes = await fetch('/api/generate-word', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        category: 'Business',
-        excludeHistory: history // 👈 최근 나온 단어 목록을 전달하여 중복 방지
-      }),
-    });
-
-    if (wordRes.ok) {
-      const newWord: WordData = await wordRes.json();
-      setWordData(newWord);
-
-      // 새로운 단어를 히스토리에 추가 (최근 10개까지 관리)
-      if (newWord.word) {
-        setHistory((prev) => [...prev.slice(-9), newWord.word]);
-      }
-    }
-  } catch (err) {
-    console.error('학습 및 단어 불러오기 실패:', err);
-  } finally {
-    setLoading(false);
-    setTimeout(() => setToastMessage(null), 3000);
-  }
-};
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 py-8 px-4 flex flex-col items-center justify-center gap-5 relative">
@@ -174,7 +175,7 @@ const handleFetchNextWord = async () => {
         </p>
       </div>
 
-      {/* 게스트 유저 로그인 유도 배너 (비로그인 상태일 때만 노출) */}
+      {/* 게스트 유저 로그인 유도 배너 */}
       {!user && (
         <div className="w-full max-w-md p-3 bg-blue-950/40 border border-blue-800/40 rounded-2xl flex items-center justify-between text-xs">
           <p className="text-slate-300">
@@ -204,7 +205,7 @@ const handleFetchNextWord = async () => {
             </p>
           </div>
         ) : (
-          <WordCard data={wordData} onNext={handleFetchNextWord} />
+          <WordCard data={wordData} onNext={() => handleFetchNextWord(false)} />
         )}
       </div>
     </main>
