@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import WordCard, { WordData } from '@/components/WordCard';
 import PushSubscriptionButton from '@/components/PushSubscriptionButton';
 import ImageWordUploader from '@/components/ImageWordUploader';
-import { createClient } from '@/lib/supabase/client'; // 👈 Supabase 클라이언트 import 추가
+import { createClient } from '@/lib/supabase/client';
+import { User } from '@supabase/supabase-js';
 
 const SAMPLE_WORD: WordData = {
   word: 'Touch base',
@@ -28,47 +29,71 @@ export default function HomePage() {
   const [wordData, setWordData] = useState<WordData>(SAMPLE_WORD);
   const [loading, setLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
 
-  // app/page.tsx 내 handleFetchNextWord 함수 내부
-const handleFetchNextWord = async () => {
+  const supabase = createClient();
+
+  // 1. 초기 세션 체크 및 로그인 상태 변경 리스너 등록
+  useEffect(() => {
+    // 현재 세션 가져오기
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    // 실시간 인증 상태 변경 감지
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // 구글 소셜 로그인
+  const handleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+  };
+
+  // 로그아웃
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
+
+  // 2. 학습 완료 & 다음 단어 불러오기
+  const handleFetchNextWord = async () => {
     setLoading(true);
     setToastMessage(null);
 
     try {
-      const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
 
-      // 💡 디버깅: 브라우저 콘솔에서 세션 유무 확인
-      console.log('현재 세션 상태:', session);
+      // [A] 로그인한 사용자만 출석 체크 API 실행 (비로그인 시 건너뜀)
+      if (session?.access_token) {
+        const attendRes = await fetch('/api/attendance', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
 
-      // 1. 세션(로그인 토큰)이 없는 경우 처리
-      if (!session) {
-        alert('출석 체크 및 학습 기록을 위해 먼저 로그인해주세요!');
-        // 필요시 로그인 페이지 이동: router.push('/login');
-        setLoading(false);
-        return;
-      }
-
-      // 2. 로그인된 경우에만 출석 체크 API 호출
-      const attendRes = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (attendRes.ok) {
-        const attendData = await attendRes.json();
-        if (attendData.success) {
-          setToastMessage(`🎉 오늘 학습 완료! ${attendData.current_streak}일 연속 학습 중!`);
+        if (attendRes.ok) {
+          const attendData = await attendRes.json();
+          if (attendData.success) {
+            setToastMessage(`🎉 오늘 학습 완료! ${attendData.current_streak}일 연속 학습 중!`);
+          }
+        } else {
+          const errorData = await attendRes.json();
+          console.error('출석 체크 실패:', errorData);
         }
-      } else {
-        const errorData = await attendRes.json();
-        console.error('출석 체크 실패:', errorData);
       }
 
-      // 3. 다음 AI 단어 생성 호출
+      // [B] 로그인 여부와 관계없이 게스트도 무조건 AI 단어 추천 실행
       const wordRes = await fetch('/api/generate-word', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -88,13 +113,43 @@ const handleFetchNextWord = async () => {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 py-10 px-4 flex flex-col items-center justify-center gap-5 relative">
+    <main className="min-h-screen bg-slate-950 text-slate-100 py-8 px-4 flex flex-col items-center justify-center gap-5 relative">
       {/* 출석 축하 토스트 알림 */}
       {toastMessage && (
         <div className="fixed top-6 z-50 bg-emerald-500 text-slate-950 font-bold px-4 py-2.5 rounded-full shadow-lg text-xs animate-bounce">
           {toastMessage}
         </div>
       )}
+
+      {/* 상단 사용자 로그인/게스트 상태 표시 바 */}
+      <div className="w-full max-w-md flex justify-between items-center text-xs px-1">
+        <span className="text-slate-400">
+          {user ? (
+            <span className="text-emerald-400 font-medium">● 출석 기록 중</span>
+          ) : (
+            <span className="text-slate-500">👀 게스트 학습 모드</span>
+          )}
+        </span>
+
+        {user ? (
+          <div className="flex items-center gap-2">
+            <span className="text-slate-300 truncate max-w-[150px]">{user.email}</span>
+            <button
+              onClick={handleLogout}
+              className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-slate-400 rounded-lg border border-slate-800 transition-all"
+            >
+              로그아웃
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handleLogin}
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl shadow-md transition-all flex items-center gap-1.5"
+          >
+            <span>🔑</span> 구글 로그인
+          </button>
+        )}
+      </div>
 
       {/* 서비스 타이틀 헤더 */}
       <div className="text-center space-y-1">
@@ -105,6 +160,21 @@ const handleFetchNextWord = async () => {
           바쁜 직장인을 위한 출퇴근 맞춤 실전 영단어
         </p>
       </div>
+
+      {/* 게스트 유저 로그인 유도 배너 (비로그인 상태일 때만 노출) */}
+      {!user && (
+        <div className="w-full max-w-md p-3 bg-blue-950/40 border border-blue-800/40 rounded-2xl flex items-center justify-between text-xs">
+          <p className="text-slate-300">
+            💡 로그인하면 <strong className="text-blue-400">연속 출석 스트릭</strong>이 기록됩니다.
+          </p>
+          <button
+            onClick={handleLogin}
+            className="text-blue-400 font-bold underline underline-offset-2 hover:text-blue-300 shrink-0 ml-2"
+          >
+            로그인하기
+          </button>
+        </div>
+      )}
 
       {/* 상단 액션 영역 (푸시 알림 구독 & OCR 이미지 업로더) */}
       <div className="w-full max-w-md space-y-3">
