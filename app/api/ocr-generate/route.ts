@@ -24,17 +24,20 @@ export async function POST(req: Request) {
       base64Data = parts[1];
     }
 
-    // 2. GoogleGenerativeAI SDK 초기화 및 모델 선택
+    // 2. GoogleGenerativeAI SDK 초기화
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // SDK는 'gemini-1.5-flash' 또는 'gemini-2.0-flash'를 지정하면 자동으로 올바른 API 엔드포인트를 호출합니다.
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.2,
+    // 모델명을 gemini-2.0-flash로 설정 (v1 API 사용)
+    const model = genAI.getGenerativeModel(
+      {
+        model: 'gemini-2.0-flash',
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.2,
+        },
       },
-    });
+      { apiVersion: 'v1' } // v1beta 404 회피용 requestOptions
+    );
 
     const prompt = `Analyze the uploaded image (book page, email, document, or sign). 
 Extract ONE key high-value English word or business idiom that is most useful for adult learners.
@@ -57,7 +60,7 @@ Respond STRICTLY in JSON format matching this schema:
   }
 }`;
 
-    // 3. SDK를 통한 이미지 분석 요청
+    // 3. 이미지 단어 추출 분석 호출
     const result = await model.generateContent([
       prompt,
       {
