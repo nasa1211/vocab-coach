@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export async function POST(req: Request) {
   try {
@@ -23,24 +24,19 @@ export async function POST(req: Request) {
       base64Data = parts[1];
     }
 
-    // 2. 호환성이 보장된 gemini-1.5-flash-latest 모델 엔드포인트 호출
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  inline_data: {
-                    mime_type: mimeType,
-                    data: base64Data,
-                  },
-                },
-                {
-                  text: `Analyze the uploaded image (book page, email, document, or sign). 
+    // 2. GoogleGenerativeAI SDK 초기화 및 모델 선택
+    const genAI = new GoogleGenerativeAI(apiKey);
+    
+    // SDK는 'gemini-1.5-flash' 또는 'gemini-2.0-flash'를 지정하면 자동으로 올바른 API 엔드포인트를 호출합니다.
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-1.5-flash',
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.2,
+      },
+    });
+
+    const prompt = `Analyze the uploaded image (book page, email, document, or sign). 
 Extract ONE key high-value English word or business idiom that is most useful for adult learners.
 
 Respond STRICTLY in JSON format matching this schema:
@@ -59,27 +55,20 @@ Respond STRICTLY in JSON format matching this schema:
     "answer_index": 0,
     "explanation": "해설"
   }
-}`,
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            response_mime_type: 'application/json',
-            temperature: 0.2,
-          },
-        }),
-      }
-    );
+}`;
 
-    const result = await response.json();
+    // 3. SDK를 통한 이미지 분석 요청
+    const result = await model.generateContent([
+      prompt,
+      {
+        inlineData: {
+          mimeType: mimeType,
+          data: base64Data,
+        },
+      },
+    ]);
 
-    if (!response.ok) {
-      console.error('❌ [Gemini API HTTP Error]:', response.status, JSON.stringify(result, null, 2));
-      throw new Error(`Gemini API Error (${response.status}): ${result.error?.message || 'Unknown error'}`);
-    }
-
-    const textResult = result.candidates?.[0]?.content?.parts?.[0]?.text;
+    const textResult = result.response.text();
 
     if (!textResult) {
       throw new Error('AI가 이미지에서 단어를 추출하지 못했습니다.');
