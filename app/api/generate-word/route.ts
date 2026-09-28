@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const CANDIDATE_MODELS = [
-  "gemini-2.5-flash",       // 추천 빠른 플래시 모델
-  "gemini-2.5-pro",         // 고성능 추론 모델
-  "gemini-1.5-flash",       // 백업 플래시 모델
+  "gemini-3.7-flash",       // 1순위: 최신 초고속 모델
+  "gemini-3.6-flash",       // 2순위: 대체 Flash 모델
+  "gemini-3.5-flash",       // 3순위: 검증된 백업 Flash 모델
+  "gemini-3.1-pro-preview", // 4순위: 고성능 추론 모델
+  "gemini-2.5-pro",         // 5순위: 비상용 안정 버전
 ];
 
 // 안전한 JSON 파싱 함수
