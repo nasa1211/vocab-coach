@@ -13,7 +13,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다.' }, { status: 500 });
     }
 
-    // 1. Data URL에서 동적으로 MIME Type 및 순수 Base64 데이터 추출
+    // 1. Base64 및 MIME Type 동적 분리
     let mimeType = 'image/jpeg';
     let base64Data = imageBase64;
 
@@ -23,9 +23,9 @@ export async function POST(req: Request) {
       base64Data = parts[1];
     }
 
-    // 2. Gemini API 호출 (1.5-flash)
+    // 2. 호환성이 보장된 gemini-1.5-flash-latest 모델 엔드포인트 호출
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -66,7 +66,7 @@ Respond STRICTLY in JSON format matching this schema:
           ],
           generationConfig: {
             response_mime_type: 'application/json',
-            temperature: 0.2, // OCR 및 규격 추출을 위해 낮은 temperature 권장
+            temperature: 0.2,
           },
         }),
       }
@@ -74,7 +74,6 @@ Respond STRICTLY in JSON format matching this schema:
 
     const result = await response.json();
 
-    // 3. HTTP 응답 상태 및 Gemini API 내부 에러 체크
     if (!response.ok) {
       console.error('❌ [Gemini API HTTP Error]:', response.status, JSON.stringify(result, null, 2));
       throw new Error(`Gemini API Error (${response.status}): ${result.error?.message || 'Unknown error'}`);
@@ -83,15 +82,14 @@ Respond STRICTLY in JSON format matching this schema:
     const textResult = result.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!textResult) {
-      console.error('❌ [Gemini API No Candidate Error]:', JSON.stringify(result, null, 2));
-      throw new Error('AI가 이미지에서 단어를 추출하지 못했거나 안전 필터에 의해 차단되었습니다.');
+      throw new Error('AI가 이미지에서 단어를 추출하지 못했습니다.');
     }
 
     const wordData = JSON.parse(textResult);
     return NextResponse.json(wordData, { status: 200 });
 
   } catch (error: any) {
-    console.error('❌ [OCR API Handler Exception]:', error.message || error);
+    console.error('❌ [OCR API Exception]:', error.message || error);
     return NextResponse.json(
       { error: error.message || '이미지에서 단어를 추출하지 못했습니다.' },
       { status: 500 }
