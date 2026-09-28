@@ -72,33 +72,60 @@ ${history.slice(-100).join(', ')}
 }
 `;
 
-    try {
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash',
-        generationConfig: { temperature: 0.95 },
-      });
+// 시도할 후보 모델 목록 (우선순위 순)
+    const candidateModels = [
+  "gemini-3.7-flash",       // 1순위: 최신 초고속 모델
+  "gemini-3.6-flash",       // 2순위: 대체 Flash 모델
+  "gemini-3.5-flash",       // 3순위: 검증된 백업 Flash 모델
+  "gemini-3.1-pro-preview", // 4순위: 고성능 추론 모델
+  "gemini-2.5-pro",         // 5순위: 비상용 안정 버전
+    ];
 
-      const result = await model.generateContent(prompt);
-      const data = safeJsonParse(result.response.text());
+    let data = null;
 
-      if (data && data.word) {
-        // DB 저장
-        const { error } = await supabase.from('words').insert([data]);
+    // 💡 모델 폴링 (Fallback) 루프
+    for (const modelName of candidateModels) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: { temperature: 0.95 },
+        });
 
-        if (error) {
-          if (error.code === '23505') { // UNIQUE 중복 에러
-            console.warn(`⚠️ [중복 건너뜀] ${data.word}`);
-          } else {
-            console.error(`❌ DB 저장 실패 (${data.word}):`, error.message);
-          }
-        } else {
-          addedCount++;
-          history.push(data.word);
-          console.log(`✅ [${addedCount}/${targetCount}] 추가 성공: "${data.word}" (${data.meaning})`);
+        const result = await model.generateContent(prompt);
+        const parsed = safeJsonParse(result.response.text());
+
+        if (parsed && parsed.word) {
+          data = parsed;
+          break; // 성공 시 폴링 루프 탈출
         }
+      } catch (err) {
+        console.warn(`⚠️ [${modelName}] 생성 실패 -> 다음 후보 모델 시도:`, err?.message || err);
       }
-    } catch (err) {
-      console.error(`❌ 생성 중 오류 발생:`, err?.message || err);
+    }
+
+    // 모든 후보 모델이 실패했을 경우
+    if (!data || !data.word) {
+      console.error(`❌ 모든 Gemini 모델 폴링 실패: 단어를 생성하지 못했습니다.`);
+      continue;
+    }
+
+    // DB 저장 진행
+    try {
+      const { error } = await supabase.from('words').insert([data]);
+
+      if (error) {
+        if (error.code === '23505') { // UNIQUE 중복 에러
+          console.warn(`⚠️ [중복 건너뜀] ${data.word}`);
+        } else {
+          console.error(`❌ DB 저장 실패 (${data.word}):`, error.message);
+        }
+      } else {
+        addedCount++;
+        history.push(data.word);
+        console.log(`✅ [${addedCount}/${targetCount}] 추가 성공: "${data.word}" (${data.meaning})`);
+      }
+    } catch (dbErr) {
+      console.error(`❌ DB 연동 오류 (${data.word}):`, dbErr?.message || dbErr);
     }
 
     // API 호출 속도 조절 (0.5초 대기)
