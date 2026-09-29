@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+// 1. 순차적으로 시도할 후보 모델 목록
+const CANDIDATE_MODELS = [
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
+  'gemini-2.0-flash',
+  'gemini-2.5-flash',
+  'gemini-1.5-pro',
+];
+
 export async function POST(req: Request) {
   try {
     const { imageBase64 } = await req.json();
@@ -14,7 +23,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다.' }, { status: 500 });
     }
 
-    // 1. Base64 및 MIME Type 동적 분리
+    // Base64 및 MIME Type 분리
     let mimeType = 'image/jpeg';
     let base64Data = imageBase64;
 
@@ -24,17 +33,7 @@ export async function POST(req: Request) {
       base64Data = parts[1];
     }
 
-    // 2. GoogleGenerativeAI SDK 초기화 (무료 제공 기본 모델 지정)
     const genAI = new GoogleGenerativeAI(apiKey);
-    
-    // 무료 플랜에서 완벽하게 지원되는 모델 지정
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.2,
-      },
-    });
 
     const prompt = `Analyze the uploaded image (book page, email, document, or sign). 
 Extract ONE key high-value English word or business idiom that is most useful for adult learners.
@@ -57,21 +56,43 @@ Respond STRICTLY in JSON format matching this schema:
   }
 }`;
 
-    // 3. OCR 및 단어 추출 실행
-    const result = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          mimeType: mimeType,
-          data: base64Data,
-        },
-      },
-    ]);
+    let textResult: string | null = null;
+    let lastError: any = null;
 
-    const textResult = result.response.text();
+    // 2. 후보 모델 순회 시도 (404 완벽 방지)
+    for (const modelName of CANDIDATE_MODELS) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.2,
+          },
+        });
+
+        const result = await model.generateContent([
+          prompt,
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: base64Data,
+            },
+          },
+        ]);
+
+        textResult = result.response.text();
+        if (textResult) {
+          console.log(`✅ [OCR SUCCESS] 성공한 모델: ${modelName}`);
+          break; // 성공 시 반복문 탈출
+        }
+      } catch (err: any) {
+        console.warn(`⚠️ [Gemini Model Fail] ${modelName}:`, err?.message || err);
+        lastError = err;
+      }
+    }
 
     if (!textResult) {
-      throw new Error('AI가 이미지에서 단어를 추출하지 못했습니다.');
+      throw new Error(`모든 Gemini 모델 시도 실패. 마지막 에러: ${lastError?.message}`);
     }
 
     const wordData = JSON.parse(textResult);
