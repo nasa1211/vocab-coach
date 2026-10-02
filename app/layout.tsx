@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Adult AI Vocab",
+  title: "세 장의 영어",
   description: "단어와 예문을 하루 세 번 복습하는 개인 단어장",
 };
 

@@ -78,7 +78,7 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 py-8 px-4 flex flex-col items-center gap-5">
       <div className="text-center space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-white">Adult AI Vocab</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-white">세 장의 영어</h1>
         <p className="text-xs text-slate-400">단어와 예문을 아침, 낮, 저녁에 한 장씩 복습합니다.</p>
       </div>
 
