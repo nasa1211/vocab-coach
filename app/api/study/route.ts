@@ -61,6 +61,7 @@ export async function GET(req: NextRequest) {
       currentSlot: current?.slot ?? null,
       slots,
       card: toWordCard(cardRow),
+      quizzed: plan.quizzed,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "학습 카드를 불러오지 못했습니다.";

@@ -11,6 +11,7 @@ type GeneratedWord = {
   example_sentence?: string;
   example_translation?: string;
   speaking_tip?: string;
+  korean_pronunciation?: string;
   quick_quiz?: WordRow["quick_quiz"];
 };
 
@@ -46,6 +47,7 @@ function asWordRow(raw: GeneratedWord, index: number): WordRow {
     example_sentence: raw.example_sentence ?? "",
     example_translation: raw.example_translation ?? "",
     speaking_tip: raw.speaking_tip ?? "",
+    korean_pronunciation: raw.korean_pronunciation?.trim() || null,
     quick_quiz: raw.quick_quiz ?? null,
     created_at: new Date().toISOString(),
   };
@@ -97,7 +99,8 @@ JSON만 반환하세요.
   "words": [
     {
       "word": "단어 또는 숙어",
-      "phonetic": "/발음/",
+      "phonetic": "/IPA 발음기호/",
+      "korean_pronunciation": "한글 발음. 철자가 아니라 소리 나는 대로. 예: 터치 베이스",
       "meaning": "핵심 한글 뜻",
       "category": "${category}",
       "nuance": "실전에서 어떻게 쓰이는지 한국어 설명",
@@ -140,4 +143,42 @@ words 배열 길이는 ${need}개입니다.
   }
 
   return accepted.slice(0, count).map(asWordRow);
+}
+
+export async function fillKoreanPronunciations(rows: WordRow[]): Promise<WordRow[]> {
+  const missing = rows.filter((row) => row.word && row.korean_pronunciation == null);
+  if (missing.length === 0) return rows;
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return rows.map((row) => ({ ...row, korean_pronunciation: row.korean_pronunciation ?? "" }));
+  }
+
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: MODEL_NAME,
+      generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
+    });
+    const prompt = `영어 표현을 한국어 발음으로 적으세요. 뜻을 번역하지 말고, 소리 나는 대로 한글로 적으세요.
+JSON만 반환하세요.
+{"items":[{"word":"touch base","korean_pronunciation":"터치 베이스"}]}
+${missing.map((row) => `- ${row.word} ${row.phonetic || ""}`).join("\n")}`;
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    const parsed = JSON.parse(text) as { items?: { word?: string; korean_pronunciation?: string }[] };
+    const byWord = new Map(
+      (parsed.items ?? [])
+        .filter((item) => item.word && item.korean_pronunciation)
+        .map((item) => [item.word!.trim().toLowerCase(), item.korean_pronunciation!.trim()])
+    );
+
+    return rows.map((row) => ({
+      ...row,
+      korean_pronunciation:
+        row.korean_pronunciation ?? byWord.get(row.word.trim().toLowerCase()) ?? "",
+    }));
+  } catch {
+    return rows.map((row) => ({ ...row, korean_pronunciation: row.korean_pronunciation ?? "" }));
+  }
 }
