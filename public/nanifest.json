@@ -4,8 +4,8 @@
   "display": "standalone",
   "scope": "/",
   "start_url": "/",
-  "name": "Adult AI Vocab - 어른용 3분 단어장",
-  "short_name": "AI 단어장",
+  "name": "세 장의 영어",
+  "short_name": "세 장의 영어",
   "description": "바쁜 성인을 위한 AI 맞춤형 실전 영단어 코치",
   "icons": [
     {
