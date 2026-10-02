@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { findStudyWord, getTodayPlan, markOpened } from "@/lib/app-state";
+import { findCachedWord, getTodayPlan, markOpened } from "@/lib/app-state";
 import { DAILY_SLOTS } from "@/lib/study-plan";
 import { toWordCard } from "@/lib/word-card";
 
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       current =
         plan.slots.find((item) => item.row.word.toLowerCase() === wordQuery.toLowerCase()) ?? null;
       if (!current) {
-        extraRow = await findStudyWord(wordQuery);
+        extraRow = await findCachedWord(wordQuery);
         if (!extraRow) {
           return NextResponse.json({ error: "단어를 찾을 수 없습니다." }, { status: 404 });
         }
