@@ -1,44 +1,24 @@
-// app/api/push/subscribe/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { NextRequest, NextResponse } from "next/server";
+import { saveSubscription } from "@/lib/app-state";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const { subscription, notificationTime = '08:00:00' } = await req.json();
+    const { subscription } = await req.json();
 
-    if (!subscription || !subscription.endpoint || !subscription.keys) {
-      return NextResponse.json(
-        { error: '유효하지 않은 구독 정보입니다.' },
-        { status: 400 }
-      );
+    if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
+      return NextResponse.json({ error: "유효하지 않은 구독 정보입니다." }, { status: 400 });
     }
 
-    const { endpoint, keys } = subscription;
-
-    // Supabase DB에 Upsert (endpoint 기준으로 중복 방지)
-    const { data, error } = await supabase
-      .from('subscriptions')
-      .upsert(
-        {
-          endpoint: endpoint,
-          p256dh: keys.p256dh,
-          auth: keys.auth,
-          notification_time: notificationTime,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'endpoint' }
-      );
-
-    if (error) {
-      console.error('Supabase DB 저장 실패:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    await saveSubscription(subscription);
 
     return NextResponse.json({
       success: true,
-      message: '푸시 알림 구독 정보가 DB에 저장되었습니다.',
+      message: "푸시 구독이 저장되었습니다.",
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error?.message }, { status: 500 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "구독 저장에 실패했습니다.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

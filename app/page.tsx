@@ -1,212 +1,126 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import WordCard, { WordData } from '@/components/WordCard';
+import { useCallback, useEffect, useState } from 'react';
+import WordCard from '@/components/WordCard';
 import PushSubscriptionButton from '@/components/PushSubscriptionButton';
-import ImageWordUploader from '@/components/ImageWordUploader';
-import { createClient } from '@/lib/supabase/client';
-import { User } from '@supabase/supabase-js';
+import type { WordCardData } from '@/lib/word-card';
 
-const SAMPLE_WORD: WordData = {
-  word: 'Touch base',
-  phonetic: '/tʌtʃ beɪs/',
-  meaning: '(건으로) 간단히 연락하다 / 소통하다',
-  category: 'Business English',
-  nuance:
-    '공식적인 긴 미팅이 아니라, 진행 상황을 가볍게 점검하거나 의견을 교환하기 위해 연락할 때 쓰는 대표적인 직장인 표현입니다.',
-  example_sentence: "Let's touch base on this before EOD.",
-  example_translation: '오늘 퇴근 전(EOD)에 이 건으로 간단히 이야기 나누시죠.',
-  speaking_tip: "'터치'와 '베이스'를 멈추지 말고 '터치베이스'처럼 이어서 발음하세요.",
-  quick_quiz: {
-    question: "다음 중 'Touch base'와 가장 가까운 표현은?",
-    options: ['진행 상황 짧게 체크하기', '계약서에 서명하기', '사과 인사 전하기'],
-    answer_index: 0,
-    explanation: "'Touch base'는 간단한 경과 보고나 연락을 뜻합니다.",
-  },
+type StudySlot = {
+  slot: number;
+  label: string;
+  time: string;
+  word: string;
+  opened: boolean;
+  sent: boolean;
+};
+
+type StudyResponse = {
+  studyDate: string;
+  currentSlot: number | null;
+  slots: StudySlot[];
+  card: WordCardData;
 };
 
 export default function HomePage() {
-  const [wordData, setWordData] = useState<WordData>(SAMPLE_WORD);
-  const [loading, setLoading] = useState<boolean>(true); // initial load 시 뼈대 로딩 처리
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [history, setHistory] = useState<string[]>([]);
+  const [study, setStudy] = useState<StudyResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const supabase = createClient();
-
-  // 1. 다음 단어 불러오기 (초기 로딩 및 '다음' 버튼 클릭 공용)
-  const handleFetchNextWord = useCallback(async (isInitial = false) => {
+  const loadStudy = useCallback(async (query = '') => {
     setLoading(true);
-    if (!isInitial) setToastMessage(null);
+    setError(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      // [A] 로그인한 사용자이고, '다음' 버튼 클릭 시 출석 체크 API 실행
-      if (!isInitial && session?.access_token) {
-        const attendRes = await fetch('/api/attendance', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        });
-
-        if (attendRes.ok) {
-          const attendData = await attendRes.json();
-          if (attendData.success) {
-            setToastMessage(`🎉 오늘 학습 완료! ${attendData.current_streak}일 연속 학습 중!`);
-          }
-        } else {
-          const errorData = await attendRes.json();
-          console.error('출석 체크 실패:', errorData);
-        }
+      const response = await fetch(`/api/study${query}`, { cache: 'no-store' });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.error || '학습 카드를 불러오지 못했습니다.');
       }
-
-      // [B] Supabase DB / Gemini API에서 단어 가져오기
-      const wordRes = await fetch('/api/generate-word', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          category: 'business',
-          excludeHistory: history
-        }),
-      });
-
-      if (wordRes.ok) {
-        const newWord: WordData = await wordRes.json();
-        setWordData(newWord);
-
-        // 히스토리에 새 단어 추가 (최근 10개 관리)
-        if (newWord.word) {
-          setHistory((prev) => [...prev.slice(-9), newWord.word]);
-        }
-      }
+      setStudy(body);
     } catch (err) {
-      console.error('학습 및 단어 불러오기 실패:', err);
+      setError(err instanceof Error ? err.message : '학습 카드를 불러오지 못했습니다.');
     } finally {
       setLoading(false);
-      if (!isInitial) {
-        setTimeout(() => setToastMessage(null), 3000);
-      }
     }
-  }, [history, supabase.auth]);
-
-  // 2. 초기 세션 체크 & 첫 단어 자동 조회
-  useEffect(() => {
-    // 세션 가져오기
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-
-    // 실시간 인증 상태 변경 감지
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    // 첫 페이지 진입 시 DB에서 첫 단어 즉시 로드
-    handleFetchNextWord(true);
-
-    return () => subscription.unsubscribe();
   }, []);
 
-  // 구글 소셜 로그인
-  const handleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+  const loadFromLocation = useCallback(() => {
+    const params = new URLSearchParams(window.location.search);
+    const word = params.get('word');
+    const slot = params.get('slot');
+    const query = word
+      ? `?word=${encodeURIComponent(word)}`
+      : slot
+        ? `?slot=${encodeURIComponent(slot)}`
+        : '';
+    void loadStudy(query);
+  }, [loadStudy]);
+
+  useEffect(() => {
+    loadFromLocation();
+    window.addEventListener('popstate', loadFromLocation);
+    return () => window.removeEventListener('popstate', loadFromLocation);
+  }, [loadFromLocation]);
+
+  const openSlot = (slot: number) => {
+    const url = `/?slot=${slot}`;
+    window.history.pushState(null, '', url);
+    void loadStudy(`?slot=${slot}`);
   };
 
-  // 로그아웃
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+  const openNext = () => {
+    if (!study || study.slots.length === 0) return;
+    const index = study.slots.findIndex((item) => item.slot === study.currentSlot);
+    const next = study.slots[(index + 1) % study.slots.length];
+    openSlot(next.slot);
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 py-8 px-4 flex flex-col items-center justify-center gap-5 relative">
-      {/* 출석 축하 토스트 알림 */}
-      {toastMessage && (
-        <div className="fixed top-6 z-50 bg-emerald-500 text-slate-950 font-bold px-4 py-2.5 rounded-full shadow-lg text-xs animate-bounce">
-          {toastMessage}
-        </div>
-      )}
-
-      {/* 상단 사용자 로그인/게스트 상태 표시 바 */}
-      <div className="w-full max-w-md flex justify-between items-center text-xs px-1">
-        <span className="text-slate-400">
-          {user ? (
-            <span className="text-emerald-400 font-medium">● 출석 기록 중</span>
-          ) : (
-            <span className="text-slate-500">👀 게스트 학습 모드</span>
-          )}
-        </span>
-
-        {user ? (
-          <div className="flex items-center gap-2">
-            <span className="text-slate-300 truncate max-w-[150px]">{user.email}</span>
-            <button
-              onClick={handleLogout}
-              className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-slate-400 rounded-lg border border-slate-800 transition-all"
-            >
-              로그아웃
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={handleLogin}
-            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl shadow-md transition-all flex items-center gap-1.5"
-          >
-            <span>🔑</span> 구글 로그인
-          </button>
-        )}
-      </div>
-
-      {/* 서비스 타이틀 헤더 */}
+    <main className="min-h-screen bg-slate-950 text-slate-100 py-8 px-4 flex flex-col items-center gap-5">
       <div className="text-center space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-white">
-          Adult AI Vocab <span className="text-blue-500 text-sm font-normal">3-Min Coach</span>
-        </h1>
-        <p className="text-xs text-slate-400">
-          바쁜 직장인을 위한 출퇴근 맞춤 실전 영단어
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight text-white">Adult AI Vocab</h1>
+        <p className="text-xs text-slate-400">단어와 예문을 아침, 낮, 저녁에 한 장씩 복습합니다.</p>
       </div>
 
-      {/* 게스트 유저 로그인 유도 배너 */}
-      {!user && (
-        <div className="w-full max-w-md p-3 bg-blue-950/40 border border-blue-800/40 rounded-2xl flex items-center justify-between text-xs">
-          <p className="text-slate-300">
-            💡 로그인하면 <strong className="text-blue-400">연속 출석 스트릭</strong>이 기록됩니다.
-          </p>
-          <button
-            onClick={handleLogin}
-            className="text-blue-400 font-bold underline underline-offset-2 hover:text-blue-300 shrink-0 ml-2"
-          >
-            로그인하기
-          </button>
+      <PushSubscriptionButton />
+
+      {study && (
+        <div className="w-full max-w-md grid grid-cols-3 gap-2">
+          {study.slots.map((slot) => {
+            const selected = slot.slot === study.currentSlot;
+            return (
+              <button
+                key={slot.slot}
+                onClick={() => openSlot(slot.slot)}
+                className={`rounded-2xl border px-2 py-2 text-left transition-colors ${
+                  selected
+                    ? 'border-blue-500 bg-blue-500/10'
+                    : 'border-slate-800 bg-slate-900 hover:bg-slate-800'
+                }`}
+              >
+                <p className="text-[11px] text-slate-400">
+                  {slot.label} {slot.time}
+                </p>
+                <p className="text-xs font-semibold text-white truncate">{slot.word}</p>
+                <p className="text-[10px] text-slate-500">{slot.opened ? '학습함' : '아직'}</p>
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {/* 상단 액션 영역 (푸시 알림 구독 & OCR 이미지 업로더) */}
-      <div className="w-full max-w-md space-y-3">
-        <PushSubscriptionButton />
-        <ImageWordUploader onWordGenerated={(newWord) => setWordData(newWord)} />
-      </div>
-
-      {/* 플래시 카드 UI 영역 */}
       <div className="w-full max-w-md">
         {loading ? (
           <div className="w-full h-[520px] bg-slate-900/50 border border-slate-800 rounded-3xl flex items-center justify-center">
-            <p className="text-xs text-slate-400 animate-pulse">
-              AI 멘토가 다음 실전 단어를 준비 중입니다...
-            </p>
+            <p className="text-xs text-slate-400 animate-pulse">오늘의 단어와 예문을 불러오는 중입니다.</p>
           </div>
-        ) : (
-          <WordCard data={wordData} onNext={() => handleFetchNextWord(false)} />
-        )}
+        ) : error ? (
+          <div className="w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 text-sm text-rose-300">
+            {error}
+          </div>
+        ) : study ? (
+          <WordCard key={study.card.word} data={study.card} onNext={openNext} />
+        ) : null}
       </div>
     </main>
   );

@@ -1,74 +1,95 @@
-// app/api/push/cron/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
-import webpush from 'web-push';
+import { NextRequest, NextResponse } from "next/server";
+import webpush from "web-push";
+import { getTodayPlan, listSubscriptions, markSent, replaceSubscriptions } from "@/lib/app-state";
 
-// VAPID 세팅
-webpush.setVapidDetails(
-  'mailto:admin@example.com',
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '',
-  process.env.VAPID_PRIVATE_KEY || ''
-);
+export const dynamic = "force-dynamic";
+
+const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "";
+
+if (vapidPublicKey && vapidPrivateKey) {
+  webpush.setVapidDetails("mailto:admin@example.com", vapidPublicKey, vapidPrivateKey);
+}
 
 export async function GET(req: NextRequest) {
   try {
-    // 보안: Vercel Cron 등의 인증 헤더 검증 (CRON_SECRET)
-    const authHeader = req.headers.get('authorization');
-    if (
-      process.env.CRON_SECRET &&
-      authHeader !== `Bearer ${process.env.CRON_SECRET}`
-    ) {
-      return NextResponse.json({ error: '인증 실패' }, { status: 401 });
+    const authHeader = req.headers.get("authorization");
+    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+      return NextResponse.json({ error: "인증 실패" }, { status: 401 });
     }
 
-    // 1. DB에서 활성화된 전체 구독 리스트 조회
-    const { data: subscriptions, error } = await supabaseAdmin
-      .from('subscriptions')
-      .select('*');
-
-    if (error || !subscriptions || subscriptions.length === 0) {
-      return NextResponse.json({ message: '발송할 대상이 없습니다.' });
+    const slot = Number(req.nextUrl.searchParams.get("slot") || "");
+    if (![1, 2, 3].includes(slot)) {
+      return NextResponse.json({ error: "slot은 1, 2, 3 중 하나여야 합니다." }, { status: 400 });
     }
 
-    // 2. 발송할 알림 메세지 구성
+    if (!vapidPublicKey || !vapidPrivateKey) {
+      return NextResponse.json({ error: "VAPID 키가 없습니다." }, { status: 500 });
+    }
+
+    const plan = await getTodayPlan();
+    const item = plan.slots.find((entry) => entry.slot === slot);
+    if (!item) {
+      return NextResponse.json({ error: "이 회차에 보낼 단어가 없습니다." }, { status: 404 });
+    }
+
+    const subscriptions = await listSubscriptions();
+    if (subscriptions.length === 0) {
+      return NextResponse.json({
+        message: "저장된 푸시 구독이 없습니다.",
+        slot,
+        word: item.row.word,
+      });
+    }
+
     const payload = JSON.stringify({
-      title: '☕ 출근길 3분 비즈니스 단어',
-      body: '오늘 미팅에서 바로 활용 가능한 고급 어휘 표현 3개가도착했습니다!',
-      icon: '/icons/icon-192x192.png',
-      data: { url: '/' },
+      title: item.row.word,
+      body: (item.row.example_sentence || item.row.meaning || "").slice(0, 180),
+      data: {
+        url: `${req.nextUrl.origin}/?word=${encodeURIComponent(item.row.word)}`,
+      },
     });
 
-    // 3. 비동기 병렬 푸시 전송 처리
-    const sendPromises = subscriptions.map(async (sub) => {
-      const pushSubscription = {
-        endpoint: sub.endpoint,
-        keys: {
-          p256dh: sub.p256dh,
-          auth: sub.auth,
-        },
-      };
+    let sent = 0;
+    let failed = 0;
+    const kept = [];
 
+    for (const subscription of subscriptions) {
       try {
-        await webpush.sendNotification(pushSubscription, payload);
-        return { id: sub.id, status: 'success' };
-      } catch (err: any) {
-        // 410 Gone 또는 404 Not Found는 사용자가 브라우저에서 알림을 취소했거나 만료된 상태 -> DB 정리
-        if (err.statusCode === 410 || err.statusCode === 404) {
-          await supabaseAdmin.from('subscriptions').delete().eq('id', sub.id);
-          console.log(`만료된 구독 정보 삭제 완료 (ID: ${sub.id})`);
+        await webpush.sendNotification(
+          {
+            endpoint: subscription.endpoint,
+            keys: { p256dh: subscription.p256dh, auth: subscription.auth },
+          },
+          payload
+        );
+        sent += 1;
+        kept.push(subscription);
+      } catch (error) {
+        failed += 1;
+        const statusCode = typeof error === "object" && error && "statusCode" in error ? error.statusCode : 0;
+        if (statusCode !== 404 && statusCode !== 410) {
+          kept.push(subscription);
         }
-        return { id: sub.id, status: 'failed', error: err.message };
       }
-    });
+    }
 
-    const results = await Promise.all(sendPromises);
+    if (kept.length !== subscriptions.length) {
+      await replaceSubscriptions(kept);
+    }
+    if (sent > 0) {
+      await markSent(plan.date, slot);
+    }
 
     return NextResponse.json({
-      success: true,
-      totalCount: subscriptions.length,
-      results,
+      success: sent > 0,
+      slot,
+      word: item.row.word,
+      sent,
+      failed,
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error?.message }, { status: 500 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "푸시 발송에 실패했습니다.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
