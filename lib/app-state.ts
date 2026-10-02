@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { DAILY_SLOTS, STATE_WORD } from "@/lib/study-plan";
 import { getKSTDateString } from "@/lib/kst";
-import { generateStudyWords } from "@/lib/generate-study-words";
+import { fillKoreanPronunciations, generateStudyWords } from "@/lib/generate-study-words";
 
 export type PushSubscriptionRecord = {
   endpoint: string;
@@ -13,6 +13,7 @@ type AppState = {
   subscriptions: PushSubscriptionRecord[];
   opened: Record<string, number[]>;
   sent: Record<string, number[]>;
+  quizzed: Record<string, number[]>;
   dailyWords: Record<string, WordRow[]>;
 };
 
@@ -26,6 +27,7 @@ export type WordRow = {
   example_sentence: string | null;
   example_translation: string | null;
   speaking_tip: string | null;
+  korean_pronunciation?: string | null;
   quick_quiz: {
     question?: string;
     options?: string[];
@@ -36,7 +38,7 @@ export type WordRow = {
 };
 
 function emptyState(): AppState {
-  return { subscriptions: [], opened: {}, sent: {}, dailyWords: {} };
+  return { subscriptions: [], opened: {}, sent: {}, quizzed: {}, dailyWords: {} };
 }
 
 function parseState(nuance: string | null): AppState {
@@ -47,6 +49,7 @@ function parseState(nuance: string | null): AppState {
       subscriptions: Array.isArray(parsed.subscriptions) ? parsed.subscriptions : [],
       opened: parsed.opened && typeof parsed.opened === "object" ? parsed.opened : {},
       sent: parsed.sent && typeof parsed.sent === "object" ? parsed.sent : {},
+      quizzed: parsed.quizzed && typeof parsed.quizzed === "object" ? parsed.quizzed : {},
       dailyWords: parsed.dailyWords && typeof parsed.dailyWords === "object" ? parsed.dailyWords : {},
     };
   } catch {
@@ -75,6 +78,7 @@ async function loadState(): Promise<AppState> {
 async function saveState(state: AppState) {
   prune(state.opened);
   prune(state.sent);
+  prune(state.quizzed);
   prune(state.dailyWords);
   const nuance = JSON.stringify(state);
 
@@ -151,15 +155,24 @@ function toTodaySlots(state: AppState, date: string, picked: WordRow[]): TodaySl
 }
 
 async function ensureTodayWords(state: AppState, date: string) {
-  const picked = state.dailyWords[date] ?? [];
-  if (picked.length > 0) return { picked, dirty: false };
+  let picked = state.dailyWords[date] ?? [];
+  let dirty = false;
 
-  const exclude = Object.values(state.dailyWords)
-    .flat()
-    .map((item) => item.word);
-  const generated = await generateStudyWords({ count: 3, exclude });
-  state.dailyWords[date] = generated;
-  return { picked: generated, dirty: true };
+  if (picked.length === 0) {
+    const exclude = Object.values(state.dailyWords)
+      .flat()
+      .map((item) => item.word);
+    picked = await generateStudyWords({ count: 3, exclude });
+    dirty = true;
+  }
+
+  if (picked.some((row) => row.korean_pronunciation == null)) {
+    picked = await fillKoreanPronunciations(picked);
+    dirty = true;
+  }
+
+  if (dirty) state.dailyWords[date] = picked;
+  return { picked, dirty };
 }
 
 export async function getTodayPlan(date = getKSTDateString()) {
@@ -174,24 +187,14 @@ export async function getTodayStudy(
   date = getKSTDateString()
 ) {
   const state = await loadState();
-  const { picked, dirty: wordsDirty } = await ensureTodayWords(state, date);
-  let slots = toTodaySlots(state, date, picked);
+  const { picked, dirty } = await ensureTodayWords(state, date);
+  const slots = toTodaySlots(state, date, picked);
   const slot = chooseSlot(slots);
-  let dirty = wordsDirty;
-
-  if (slot && !slots.some((item) => item.slot === slot && item.opened)) {
-    const marks = new Set(state.opened[date] ?? []);
-    marks.add(slot);
-    state.opened[date] = [...marks];
-    dirty = true;
-    slots = slots.map((item) => (item.slot === slot ? { ...item, opened: true } : item));
-  }
-
   if (dirty) await saveState(state);
-  return { date, slots, currentSlot: slot };
+  return { date, slots, currentSlot: slot, quizzed: state.quizzed[date] ?? [] };
 }
 
-async function mark(date: string, slot: number, field: "opened" | "sent") {
+async function mark(date: string, slot: number, field: "opened" | "sent" | "quizzed") {
   const state = await loadState();
   const marks = new Set(state[field][date] ?? []);
   if (marks.has(slot)) return;
@@ -206,6 +209,10 @@ export function markOpened(date: string, slot: number) {
 
 export function markSent(date: string, slot: number) {
   return mark(date, slot, "sent");
+}
+
+export function markQuizzed(date: string, slot: number) {
+  return mark(date, slot, "quizzed");
 }
 
 export async function listSubscriptions() {

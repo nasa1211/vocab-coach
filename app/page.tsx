@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import WordCard from "@/components/WordCard";
+import ReviewQuiz from "@/components/ReviewQuiz";
 import BottomNav, { type AppTab } from "@/components/BottomNav";
 import HistoryList from "@/components/HistoryList";
 import SettingsPanel from "@/components/SettingsPanel";
@@ -22,7 +23,21 @@ type StudyResponse = {
   currentSlot: number | null;
   slots: StudySlot[];
   card: WordCardData;
+  quizzed?: number[];
 };
+
+type QuizGate = {
+  aboutSlot: number;
+  destinationSlot: number;
+};
+
+function needsReview(destination: number, data: StudyResponse) {
+  const previous = destination - 1;
+  if (previous < 1) return false;
+  if ((data.quizzed ?? []).includes(previous)) return false;
+  const prev = data.slots.find((item) => item.slot === previous);
+  return Boolean(prev?.card?.quick_quiz && prev.card.quick_quiz.options.length > 0);
+}
 
 function readLocation() {
   const params = new URLSearchParams(window.location.search);
@@ -40,9 +55,12 @@ export default function HomePage() {
   const [study, setStudy] = useState<StudyResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [quiz, setQuiz] = useState<QuizGate | null>(null);
   const requestId = useRef(0);
   const studyRef = useRef<StudyResponse | null>(null);
+  const quizRef = useRef<QuizGate | null>(null);
   studyRef.current = study;
+  quizRef.current = quiz;
 
   const rememberOpened = (slot: number) => {
     const current = studyRef.current;
@@ -55,10 +73,24 @@ export default function HomePage() {
     });
   };
 
-  const showCachedSlot = (slot: number) => {
+  const showSlot = (slot: number) => {
     const current = studyRef.current;
     const target = current?.slots.find((item) => item.slot === slot);
     if (!current || !target?.card) return false;
+
+    if (!new URLSearchParams(window.location.search).get("word") && needsReview(slot, current)) {
+      const nextQuiz = { aboutSlot: slot - 1, destinationSlot: slot };
+      quizRef.current = nextQuiz;
+      setQuiz(nextQuiz);
+      const next = { ...current, currentSlot: slot };
+      studyRef.current = next;
+      setStudy(next);
+      setLoading(false);
+      return true;
+    }
+
+    quizRef.current = null;
+    setQuiz(null);
     rememberOpened(slot);
     const next = {
       ...current,
@@ -71,8 +103,8 @@ export default function HomePage() {
     setLoading(false);
     return true;
   };
-  const showCachedSlotRef = useRef(showCachedSlot);
-  showCachedSlotRef.current = showCachedSlot;
+  const showSlotRef = useRef(showSlot);
+  showSlotRef.current = showSlot;
 
   const loadStudy = useCallback(async (query = "", initial = false) => {
     const id = ++requestId.current;
@@ -87,7 +119,13 @@ export default function HomePage() {
         throw new Error(body.error || "학습 카드를 불러오지 못했습니다.");
       }
       studyRef.current = body;
-      setStudy(body);
+      const params = new URLSearchParams(window.location.search);
+      const slot = Number(params.get("slot") || "") || body.currentSlot || body.slots[0]?.slot;
+      if (params.get("word") || !slot || !showSlotRef.current(slot)) {
+        quizRef.current = null;
+        setQuiz(null);
+        setStudy(body);
+      }
     } catch (err) {
       if (id !== requestId.current) return;
       setError(err instanceof Error ? err.message : "학습 카드를 불러오지 못했습니다.");
@@ -106,7 +144,7 @@ export default function HomePage() {
 
     const params = new URLSearchParams(window.location.search);
     const slot = Number(params.get("slot") || "");
-    if (!params.get("word") && slot && showCachedSlotRef.current(slot)) return;
+    if (!params.get("word") && slot && showSlotRef.current(slot)) return;
 
     void loadStudy(location.query, !studyRef.current);
   }, [loadStudy]);
@@ -127,9 +165,33 @@ export default function HomePage() {
   };
 
   const openSlot = (slot: number) => {
+    if (quizRef.current && quizRef.current.aboutSlot === slot) return;
     window.history.pushState(null, "", `/?tab=today&slot=${slot}`);
     setActiveTab("today");
-    if (!showCachedSlot(slot)) void loadStudy(`?slot=${slot}`);
+    if (!showSlot(slot)) void loadStudy(`?slot=${slot}`);
+  };
+
+  const revealQuiz = () => {
+    const gate = quizRef.current;
+    const current = studyRef.current;
+    if (!gate || !current || (current.quizzed ?? []).includes(gate.aboutSlot)) return;
+    const quizzed = [...new Set([...(current.quizzed ?? []), gate.aboutSlot])];
+    const next = { ...current, quizzed };
+    studyRef.current = next;
+    setStudy(next);
+    void fetch("/api/study/quizzed", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slot: gate.aboutSlot }),
+    });
+  };
+
+  const finishQuiz = () => {
+    const gate = quizRef.current;
+    if (!gate) return;
+    quizRef.current = null;
+    setQuiz(null);
+    showSlot(gate.destinationSlot);
   };
 
   const openNext = () => {
@@ -157,21 +219,27 @@ export default function HomePage() {
               <div className="grid grid-cols-3 gap-2">
                 {study.slots.map((slot) => {
                   const selected = slot.slot === study.currentSlot;
+                  const conceal = quiz?.aboutSlot === slot.slot && !(study.quizzed ?? []).includes(slot.slot);
                   return (
                     <button
                       key={slot.slot}
                       type="button"
+                      disabled={conceal}
                       onClick={() => openSlot(slot.slot)}
                       className={`rounded-2xl border px-2 py-2 text-left transition-colors ${
-                        selected
-                          ? "border-blue-500 bg-blue-500/10"
-                          : "border-slate-200 bg-white hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
+                        conceal
+                          ? "cursor-default border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900"
+                          : selected
+                            ? "border-blue-500 bg-blue-500/10"
+                            : "border-slate-200 bg-white hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
                       }`}
                     >
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">
                         {slot.label} {slot.time}
                       </p>
-                      <p className="truncate text-xs font-semibold text-slate-900 dark:text-white">{slot.word}</p>
+                      <p className="truncate text-xs font-semibold text-slate-900 dark:text-white">
+                        {conceal ? "퀴즈" : slot.word}
+                      </p>
                       <p className="text-[10px] text-slate-400 dark:text-slate-500">
                         {slot.opened ? "학습함" : "아직"}
                       </p>
@@ -189,6 +257,15 @@ export default function HomePage() {
               <div className="w-full rounded-3xl border border-slate-200 bg-white p-6 text-sm text-rose-600 dark:border-slate-800 dark:bg-slate-900 dark:text-rose-300">
                 {error}
               </div>
+            ) : study && quiz ? (
+              <ReviewQuiz
+                key={`${quiz.aboutSlot}-${quiz.destinationSlot}`}
+                card={study.slots.find((item) => item.slot === quiz.aboutSlot)?.card ?? study.card}
+                fromLabel={study.slots.find((item) => item.slot === quiz.aboutSlot)?.label ?? "이전"}
+                toLabel={study.slots.find((item) => item.slot === quiz.destinationSlot)?.label ?? "다음"}
+                onAnswered={revealQuiz}
+                onContinue={finishQuiz}
+              />
             ) : study ? (
               <WordCard
                 key={(study.slots.find((item) => item.slot === study.currentSlot)?.card ?? study.card).word}

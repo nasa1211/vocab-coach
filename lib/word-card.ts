@@ -16,6 +16,7 @@ export type WordCardData = {
   example_sentence: string;
   example_translation: string;
   speaking_tip: string;
+  korean_pronunciation: string;
   quick_quiz: QuickQuiz | null;
 };
 
@@ -32,6 +33,7 @@ export function toWordCard(row: WordRow): WordCardData {
     example_sentence: row.example_sentence ?? "",
     example_translation: row.example_translation ?? "",
     speaking_tip: row.speaking_tip ?? "",
+    korean_pronunciation: row.korean_pronunciation ?? "",
     quick_quiz: hasQuiz
       ? {
           question: quiz?.question ?? "",

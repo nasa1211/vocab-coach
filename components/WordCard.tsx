@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Volume2, Sparkles, RefreshCw, ChevronRight } from 'lucide-react';
 import type { WordCardData } from '@/lib/word-card';
+import { speakEnglish } from '@/lib/speak-english';
 
 export type { QuickQuiz, WordCardData as WordData } from '@/lib/word-card';
 
@@ -12,67 +13,8 @@ interface WordCardProps {
 }
 
 export default function WordCard({ data, onNext }: WordCardProps) {
-  const [activeTab, setActiveTab] = useState<'example' | 'nuance' | 'quiz'>('example');
-  const tabCount = 1 + Number(Boolean(data.nuance)) + Number(Boolean(data.quick_quiz));
-  const tabGridClass = tabCount === 3 ? 'grid-cols-3' : tabCount === 2 ? 'grid-cols-2' : 'grid-cols-1';
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
-  const [showExplanation, setShowExplanation] = useState(false);
-
-  // 💡 개선된 음성 재생 (TTS) 함수
-  const handlePlayAudio = () => {
-    if (!('speechSynthesis' in window)) {
-      alert('이 브라우저는 음성 재생을 지원하지 않습니다.');
-      return;
-    }
-
-    // 이전 재생 취소 (중복 방지)
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(data.word);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.9;   // 속도: 약간 천천히 (자연스러운 학습용)
-    utterance.pitch = 1.15; // 💡 톤 높이기: 저음/할아버지 목소리 현상 해결
-
-    const playWithBestVoice = () => {
-      const voices = window.speechSynthesis.getVoices();
-
-      if (voices.length > 0) {
-        // 영어 음성 중 자연스러운 고품질/여성 음성 우선 검색
-        const preferredVoice = voices.find(
-          (v) =>
-            v.lang.startsWith('en') &&
-            (v.name.includes('Google') ||
-              v.name.includes('Samantha') ||
-              v.name.includes('Victoria') ||
-              v.name.includes('Natural') ||
-              v.name.includes('Female') ||
-              v.name.includes('Karen'))
-        );
-
-        if (preferredVoice) {
-          utterance.voice = preferredVoice;
-        }
-      }
-
-      window.speechSynthesis.speak(utterance);
-    };
-
-    // 음성 목록(voices)이 비동기로 로드되는 브라우저 대응
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length === 0) {
-      window.speechSynthesis.onvoiceschanged = () => {
-        playWithBestVoice();
-        window.speechSynthesis.onvoiceschanged = null;
-      };
-    } else {
-      playWithBestVoice();
-    }
-  };
-
-  const handleQuizSelect = (index: number) => {
-    setSelectedAnswer(index);
-    setShowExplanation(true);
-  };
+  const [activeTab, setActiveTab] = useState<'example' | 'nuance'>('example');
+  const tabGridClass = data.nuance ? 'grid-cols-2' : 'grid-cols-1';
 
   return (
     <div className="mx-auto flex min-h-[520px] w-full max-w-md flex-col justify-between rounded-3xl border border-slate-200 bg-white p-6 text-slate-800 shadow-xl dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100">
@@ -84,7 +26,7 @@ export default function WordCard({ data, onNext }: WordCardProps) {
             {data.category}
           </span>
           <button
-            onClick={handlePlayAudio}
+            onClick={() => speakEnglish(data.word, 0.86)}
             className="rounded-full bg-slate-100 p-2.5 text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-900 active:scale-95 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
             title="발음 듣기"
           >
@@ -97,7 +39,19 @@ export default function WordCard({ data, onNext }: WordCardProps) {
           <h2 className="mb-1 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
             {data.word}
           </h2>
-          <p className="font-mono text-sm text-slate-500 dark:text-slate-400">{data.phonetic}</p>
+          <p className="flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1 text-sm">
+            {data.phonetic ? (
+              <span className="font-mono tracking-tight text-slate-400 dark:text-slate-500">{data.phonetic}</span>
+            ) : null}
+            {data.phonetic && data.korean_pronunciation ? (
+              <span className="text-slate-300 dark:text-slate-600" aria-hidden>
+                ·
+              </span>
+            ) : null}
+            {data.korean_pronunciation ? (
+              <span className="text-slate-600 dark:text-slate-300">{data.korean_pronunciation}</span>
+            ) : null}
+          </p>
           <p className="mt-3 text-lg font-semibold text-emerald-600 dark:text-emerald-400">
             {data.meaning}
           </p>
@@ -127,18 +81,6 @@ export default function WordCard({ data, onNext }: WordCardProps) {
               뉘앙스
             </button>
           ) : null}
-          {data.quick_quiz ? (
-            <button
-              onClick={() => setActiveTab('quiz')}
-              className={`py-2 rounded-lg transition-all ${
-                activeTab === 'quiz'
-                  ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
-                  : 'hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-            >
-              퀴즈
-            </button>
-          ) : null}
         </div>
 
         {/* 4. 탭 콘텐츠 영역 */}
@@ -146,16 +88,27 @@ export default function WordCard({ data, onNext }: WordCardProps) {
           {/* [탭 1] 실전 예문 */}
           {activeTab === 'example' && (
             <div className="space-y-3">
-              <p className="text-sm font-medium leading-relaxed text-slate-800 dark:text-slate-200">
-                &quot;{data.example_sentence}&quot;
-              </p>
+              <div className="flex items-start gap-2">
+                <p className="flex-1 text-sm font-medium leading-relaxed text-slate-800 dark:text-slate-200">
+                  &quot;{data.example_sentence}&quot;
+                </p>
+                <button
+                  type="button"
+                  onClick={() => speakEnglish(data.example_sentence, 0.92)}
+                  className="mt-0.5 shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-white hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  title="예문 듣기"
+                  aria-label="예문 듣기"
+                >
+                  <Volume2 className="h-4 w-4" />
+                </button>
+              </div>
               <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
                 {data.example_translation}
               </p>
               {data.speaking_tip ? (
-                <div className="flex items-center gap-1 border-t border-slate-200 pt-2 text-[11px] text-blue-600 dark:border-slate-800/60 dark:text-blue-400/90">
-                  <span>💡 Speaking Tip:</span>
-                  <span className="text-slate-600 dark:text-slate-300">{data.speaking_tip}</span>
+                <div className="border-t border-slate-200 pt-2 text-[11px] leading-relaxed dark:border-slate-800/60">
+                  <p className="text-blue-600 dark:text-blue-400/90">발음 팁</p>
+                  <p className="mt-0.5 text-slate-600 dark:text-slate-300">{data.speaking_tip}</p>
                 </div>
               ) : null}
             </div>
@@ -172,43 +125,6 @@ export default function WordCard({ data, onNext }: WordCardProps) {
               </p>
             </div>
           )}
-
-          {/* [탭 3] 3초 퀴즈 */}
-          {activeTab === 'quiz' && data.quick_quiz && (
-            <div>
-              <p className="mb-3 text-xs font-medium text-slate-800 dark:text-slate-200">
-                {data.quick_quiz.question}
-              </p>
-              <div className="space-y-2">
-                {data.quick_quiz.options.map((option, idx) => {
-                  const isCorrect = idx === data.quick_quiz?.answer_index;
-                  const isSelected = selectedAnswer === idx;
-
-                  let btnStyle = 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:bg-slate-700/80';
-                  if (showExplanation) {
-                    if (isCorrect) btnStyle = 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
-                    else if (isSelected) btnStyle = 'bg-rose-500/20 text-rose-300 border border-rose-500/40';
-                  }
-
-                  return (
-                    <button
-                      key={idx}
-                      disabled={showExplanation}
-                      onClick={() => handleQuizSelect(idx)}
-                      className={`w-full text-left px-3 py-2 text-xs rounded-lg transition-all ${btnStyle}`}
-                    >
-                      {idx + 1}. {option}
-                    </button>
-                  );
-                })}
-              </div>
-              {showExplanation && (
-                <p className="mt-3 border-t border-slate-200 pt-2 text-[11px] text-slate-500 dark:border-slate-800/60 dark:text-slate-400">
-                  {data.quick_quiz.explanation}
-                </p>
-              )}
-            </div>
-          )}
         </div>
       </div>
 
@@ -216,8 +132,6 @@ export default function WordCard({ data, onNext }: WordCardProps) {
       <div className="mt-6 flex items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-slate-800/80">
         <button
           onClick={() => {
-            setSelectedAnswer(null);
-            setShowExplanation(false);
             setActiveTab('example');
           }}
           className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-200"
