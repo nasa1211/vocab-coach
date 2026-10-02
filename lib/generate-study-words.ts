@@ -14,6 +14,22 @@ type GeneratedWord = {
   quick_quiz?: WordRow["quick_quiz"];
 };
 
+function normalizeWord(word: string) {
+  return word.trim().toLowerCase();
+}
+
+export function takeNewWords(candidates: GeneratedWord[], blocked: Set<string>, limit: number) {
+  const accepted: GeneratedWord[] = [];
+  for (const candidate of candidates) {
+    const key = normalizeWord(String(candidate.word || ""));
+    if (!key || blocked.has(key)) continue;
+    blocked.add(key);
+    accepted.push(candidate);
+    if (accepted.length === limit) break;
+  }
+  return accepted;
+}
+
 function asWordRow(raw: GeneratedWord, index: number): WordRow {
   const word = String(raw.word || "").trim();
   if (!word) {
@@ -43,20 +59,36 @@ export async function generateStudyWords(options: {
 } = {}): Promise<WordRow[]> {
   const count = options.count ?? 3;
   const category = options.category || "English";
-  const exclude = (options.exclude ?? []).filter(Boolean);
+  const requestedWord = options.word ? normalizeWord(options.word) : "";
+  const blocked = new Set((options.exclude ?? []).map(normalizeWord).filter(Boolean));
+  if (requestedWord) blocked.delete(requestedWord);
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY가 없습니다.");
   }
 
-  const target = options.word
-    ? `요청된 단어("${options.word}")의 뜻과 예문을 작성하세요.`
-    : `성인 학습용 실용 영어 단어 또는 숙어 ${count}개를 서로 겹치지 않게 고르세요.`;
-  const excludeInstruction =
-    exclude.length > 0 ? `\n이미 학습한 단어는 제외하세요: ${exclude.slice(-40).join(", ")}` : "";
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
+    model: MODEL_NAME,
+    generationConfig: {
+      temperature: 0.8,
+      responseMimeType: "application/json",
+    },
+  });
 
-  const prompt = `
+  const accepted: GeneratedWord[] = [];
+
+  for (let attempt = 0; attempt < 4 && accepted.length < count; attempt += 1) {
+    const need = count - accepted.length;
+    const excludeList = [...blocked].slice(-80);
+    const target = requestedWord
+      ? `요청된 단어("${options.word}")의 뜻과 예문을 작성하세요.`
+      : `성인 학습용 실용 영어 단어 또는 숙어 ${need}개를 서로 겹치지 않게 고르세요.`;
+    const excludeInstruction =
+      excludeList.length > 0 ? `\n이미 학습한 단어는 제외하세요: ${excludeList.join(", ")}` : "";
+
+    const prompt = `
 당신은 성인을 위한 영어 단어 멘토입니다.
 ${target}${excludeInstruction}
 
@@ -81,29 +113,31 @@ JSON만 반환하세요.
     }
   ]
 }
-words 배열 길이는 ${count}개입니다.
+words 배열 길이는 ${need}개입니다.
 `;
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({
-    model: MODEL_NAME,
-    generationConfig: {
-      temperature: 0.8,
-      responseMimeType: "application/json",
-    },
-  });
+    let list: GeneratedWord[] | undefined;
+    try {
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text();
+      if (!responseText) continue;
+      const parsed = JSON.parse(responseText) as { words?: GeneratedWord[] } | GeneratedWord[];
+      list = Array.isArray(parsed) ? parsed : parsed.words;
+    } catch {
+      continue;
+    }
+    if (!Array.isArray(list)) continue;
 
-  const result = await model.generateContent(prompt);
-  const responseText = result.response.text();
-  if (!responseText) {
-    throw new Error("Gemini 응답이 비어 있습니다.");
+    const fresh = takeNewWords(list, blocked, need).filter((item) => {
+      if (!requestedWord) return true;
+      return normalizeWord(String(item.word || "")) === requestedWord;
+    });
+    accepted.push(...fresh);
   }
 
-  const parsed = JSON.parse(responseText) as { words?: GeneratedWord[] } | GeneratedWord[];
-  const list = Array.isArray(parsed) ? parsed : parsed.words;
-  if (!Array.isArray(list) || list.length === 0) {
-    throw new Error("API가 단어를 반환하지 않았습니다.");
+  if (accepted.length < count) {
+    throw new Error("이미 학습한 단어를 제외한 새 단어를 만들지 못했습니다.");
   }
 
-  return list.slice(0, count).map(asWordRow);
+  return accepted.slice(0, count).map(asWordRow);
 }
