@@ -1,0 +1,22 @@
+{
+  "theme_color": "#0f172a",
+  "background_color": "#0f172a",
+  "display": "standalone",
+  "scope": "/",
+  "start_url": "/",
+  "name": "Adult AI Vocab - 어른용 3분 단어장",
+  "short_name": "AI 단어장",
+  "description": "바쁜 성인을 위한 AI 맞춤형 실전 영단어 코치",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

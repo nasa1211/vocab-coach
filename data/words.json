@@ -1,0 +1,810 @@
+[
+  {
+    "word": "Pivot",
+    "phonetic": "/ˈpɪvət/",
+    "meaning": "방향을 전환하다",
+    "category": "Business",
+    "example_sentence": "The company decided to pivot its strategy.",
+    "example_translation": "그 회사는 전략을 전환하기로 결정했습니다."
+  },
+{
+"word": "resilience",
+"phonetic": "/rɪˈzɪl.jəns/",
+"meaning": "회복력, 탄력성",
+"category": "Daily",
+"example_sentence": "She showed great resilience during difficult times.",
+"example_translation": "그녀는 힘든 시기에 뛰어난 회복력을 보여주었다."
+},
+{
+"word": "collaborate",
+"phonetic": "/kəˈlæb.ə.reɪt/",
+"meaning": "협력하다, 공동으로 작업하다",
+"category": "Business",
+"example_sentence": "Our teams need to collaborate to finish the project on time.",
+"example_translation": "프로젝트를 제시간에 끝내기 위해 우리 팀들이 협력해야 한다."
+},
+{
+"word": "hypothesis",
+"phonetic": "/haɪˈpɒθ.ə.sɪs/",
+"meaning": "가설, 추측",
+"category": "Academic",
+"example_sentence": "The researchers tested their hypothesis through several experiments.",
+"example_translation": "연구진은 몇 차례의 실험을 통해 자신들의 가설을 검증했다."
+},
+{
+"word": "empathy",
+"phonetic": "/ˈem.pə.θi/",
+"meaning": "공감, 감정이입",
+"category": "Daily",
+"example_sentence": "Showing empathy helps build strong personal relationships.",
+"example_translation": "공감을 보여주는 것은 강력한 인간관계를 형성하는 데 도움이 된다."
+},
+{
+"word": "implement",
+"phonetic": "/ˈɪm.plɪ.ment/",
+"meaning": "시행하다, 실행하다",
+"category": "Business",
+"example_sentence": "We plan to implement the new policy starting next month.",
+"example_translation": "우리는 다음 달부터 새 정책을 시행할 계획이다."
+},
+{
+"word": "analyze",
+"phonetic": "/ˈæn.əl.aɪz/",
+"meaning": "분석하다",
+"category": "Academic",
+"example_sentence": "Students were asked to analyze the historical document.",
+"example_translation": "학생들은 그 역사적 문서를 분석하라는 과제를 받았다."
+},
+{
+"word": "versatile",
+"phonetic": "/ˈvɜː.sə.taɪl/",
+"meaning": "다재다능한, 다용도의",
+"category": "Daily",
+"example_sentence": "This jacket is versatile enough to wear in any season.",
+"example_translation": "이 재킷은 어떤 계절에도 입을 수 있을 만큼 다용도이다."
+},
+{
+"word": "negotiate",
+"phonetic": "/nəˈɡəʊ.ʃi.eɪt/",
+"meaning": "협상하다, 절충하다",
+"category": "Business",
+"example_sentence": "They managed to negotiate a better deal with the supplier.",
+"example_translation": "그들은 공급업체와 더 나은 조건으로 협상해 냈다."
+},
+{
+"word": "methodology",
+"phonetic": "/ˌmeθ.əˈdɒl.ə.dʒi/",
+"meaning": "방법론",
+"category": "Academic",
+"example_sentence": "The study explains the research methodology in detail.",
+"example_translation": "이 연구는 연구 방법론을 자세히 설명한다."
+},
+{
+"word": "ambiguity",
+"phonetic": "/ˌæm.bɪˈɡjuː.ə.ti/",
+"meaning": "모호함, 애매함",
+"category": "Academic",
+"example_sentence": "The contract was rewritten to eliminate any ambiguity.",
+"example_translation": "그 계약서는 어떤 모호함도 없애기 위해 다시 작성되었다."
+},
+{
+"word": "sustainability",
+"phonetic": "/səˌsteɪ.nəˈbɪl.ə.ti/",
+"meaning": "지속 가능성",
+"category": "Business",
+"example_sentence": "Sustainability has become a core strategy for modern enterprises.",
+"example_translation": "지속 가능성은 현대 기업의 핵심 전략이 되었다."
+},
+{
+"word": "spontaneous",
+"phonetic": "/spɒnˈteɪ.ni.əs/",
+"meaning": "자발적인, 즉흥적인",
+"category": "Daily",
+"example_sentence": "We took a spontaneous trip to the beach last weekend.",
+"example_translation": "우리는 지난 주말에 즉흥적으로 바닷가 여행을 떠났다."
+},
+{
+"word": "allocate",
+"phonetic": "/ˈæl.ə.keɪt/",
+"meaning": "할당하다, 배분하다",
+"category": "Business",
+"example_sentence": "The manager decided to allocate more resources to marketing.",
+"example_translation": "매니저는 마케팅에 더 많은 자원을 배분하기로 결정했다."
+},
+{
+"word": "cohesive",
+"phonetic": "/kəʊˈhiː.sɪv/",
+"meaning": "결속력 있는, 화합하는",
+"category": "Academic",
+"example_sentence": "The team worked together to create a cohesive argument.",
+"example_translation": "그 팀은 통일성 있는 주장을 만들어 내기 위해 함께 일했다."
+},
+{
+"word": "meticulous",
+"phonetic": "/məˈtɪk.jə.ləs/",
+"meaning": "꼼꼼한, 세심한",
+"category": "Daily",
+"example_sentence": "He is very meticulous about keeping his workspace clean.",
+"example_translation": "그는 작업 공간을 깨끗하게 유지하는 데 매우 꼼꼼하다."
+},
+{
+"word": "feasibility",
+"phonetic": "/ˌfiː.zəˈbɪl.ə.ti/",
+"meaning": "실현 가능성",
+"category": "Business",
+"example_sentence": "We are conducting a feasibility study before launching the project.",
+"example_translation": "우리는 프로젝트를 시작하기 전에 실현 가능성 조사를 진행하고 있다."
+},
+{
+"word": "phenomenon",
+"phonetic": "/fəˈnɒm.ɪ.nən/",
+"meaning": "현상",
+"category": "Academic",
+"example_sentence": "Social media usage is a global phenomenon.",
+"example_translation": "소셜 미디어 사용은 전 세계적인 현상이다."
+},
+{
+"word": "pragmatic",
+"phonetic": "/præɡˈmæt.ɪk/",
+"meaning": "실용적인, 실무적인",
+"category": "Business",
+"example_sentence": "We need a pragmatic approach to solve this issue quickly.",
+"example_translation": "이 문제를 신속하게 해결하기 위해서는 실용적인 접근 방식이 필요하다."
+},
+{
+"word": "alleviate",
+"phonetic": "/əˈliː.vi.eɪt/",
+"meaning": "완화하다, 경감시키다",
+"category": "Daily",
+"example_sentence": "Taking a short walk can help alleviate daily stress.",
+"example_translation": "가벼운 산책은 일상의 스트레스를 완화하는 데 도움이 될 수 있다."
+},
+{
+"word": "empirical",
+"phonetic": "/ɪmˈpɪr.ɪ.kəl/",
+"meaning": "실증적인, 경험에 의한",
+"category": "Academic",
+"example_sentence": "The study provides empirical evidence supporting the theory.",
+"example_translation": "이 연구는 그 이론을 뒷받침하는 실증적 증거를 제공한다."
+},
+{
+"word": "incentive",
+"phonetic": "/ɪnˈsen.tɪv/",
+"meaning": "인센티브, 장려책",
+"category": "Business",
+"example_sentence": "The company offered a financial incentive to boost productivity.",
+"example_translation": "회사는 생산성을 높이기 위해 재정적 인센티브를 제공했다."
+},
+{
+"word": "candid",
+"phonetic": "/ˈkæn.dɪd/",
+"meaning": "솔직한, 남김없는",
+"category": "Daily",
+"example_sentence": "I appreciate your candid opinion about my proposal.",
+"example_translation": "제 제안에 대한 당신의 솔직한 의견에 감사드립니다."
+},
+{
+"word": "paradigm",
+"phonetic": "/ˈpær.ə.daɪm/",
+"meaning": "패러다임, 전형적인 틀",
+"category": "Academic",
+"example_sentence": "The invention of the smartphone created a new digital paradigm.",
+"example_translation": "스마트폰의 발명은 새로운 디지털 패러다임을 창출했다."
+},
+{
+"word": "contingency",
+"phonetic": "/kənˈtɪn.dʒən.si/",
+"meaning": "비상사태, 만일의 사태",
+"category": "Business",
+"example_sentence": "We should prepare a contingency plan for unexpected delays.",
+"example_translation": "우리는 예상치 못한 지연에 대비해 비상 계획을 준비해야 한다."
+},
+{
+"word": "inevitable",
+"phonetic": "/ɪnˈev.ɪ.tə.bəl/",
+"meaning": "피할 수 없는, 불가피한",
+"category": "Daily",
+"example_sentence": "Change is an inevitable part of life.",
+"example_translation": "변화는 인생에서 피할 수 없는 부분이다."
+},
+{
+"word": "correlation",
+"phonetic": "/ˌkɒr.əˈleɪ.ʃən/",
+"meaning": "상관관계",
+"category": "Academic",
+"example_sentence": "There is a strong correlation between exercise and mental health.",
+"example_translation": "운동과 정신 건강 사이에는 강한 상관관계가 있다."
+},
+{
+"word": "benchmark",
+"phonetic": "/ˈbentʃ.mɑːk/",
+"meaning": "기준, 벤치마크",
+"category": "Business",
+"example_sentence": "Our sales target serves as a benchmark for performance.",
+"example_translation": "우리의 매출 목표는 성과의 기준 역할을 한다."
+},
+{
+"word": "profound",
+"phonetic": "/prəˈfaʊnd/",
+"meaning": "깊은, 심오한",
+"category": "Daily",
+"example_sentence": "The book had a profound impact on my perspective.",
+"example_translation": "그 책은 내 관점에 심오한 영향을 미쳤다."
+},
+{
+"word": "differentiate",
+"phonetic": "/ˌdɪf.əˈren.ʃi.eɪt/",
+"meaning": "구별하다, 차별화하다",
+"category": "Business",
+"example_sentence": "Unique features help differentiate our product from competitors.",
+"example_translation": "독특한 기능은 우리 제품을 경쟁사와 차별화하는 데 도움이 된다."
+},
+{
+"word": "synthesis",
+"phonetic": "/ˈsɪn.θə.sɪs/",
+"meaning": "종합, 합성",
+"category": "Academic",
+"example_sentence": "The report is a synthesis of various research findings.",
+"example_translation": "그 보고서는 다양한 연구 결과의 종합이다."
+},
+{
+"word": "authentic",
+"phonetic": "/ɔːˈθen.tɪk/",
+"meaning": "진짜의, 진정한",
+"category": "Daily",
+"example_sentence": "This restaurant serves authentic Italian pizza.",
+"example_translation": "이 식당은 진정한 이탈리아 피자를 제공한다."
+},
+{
+"word": "streamline",
+"phonetic": "/ˈstriːm.laɪn/",
+"meaning": "간소화하다, 능률화하다",
+"category": "Business",
+"example_sentence": "We need to streamline our manufacturing process.",
+"example_translation": "우리는 제조 공정을 간소화해야 한다."
+},
+{
+"word": "assertion",
+"phonetic": "/əˈsɜː.ʃən/",
+"meaning": "주장, 단언",
+"category": "Academic",
+"example_sentence": "His assertion was supported by substantial proof.",
+"example_translation": "그의 주장은 상당한 증거에 의해 뒷받침되었다."
+},
+{
+"word": "compliment",
+"phonetic": "/ˈkɒm.plɪ.mənt/",
+"meaning": "칭찬",
+"category": "Daily",
+"example_sentence": "Thank you for the nice compliment on my presentation.",
+"example_translation": "제 발표에 대해 좋은 칭찬을 해주셔서 감사합니다."
+},
+{
+"word": "discrepancy",
+"phonetic": "/dɪˈskrep.ən.si/",
+"meaning": "불일치, 차이",
+"category": "Business",
+"example_sentence": "There was a discrepancy between the two financial reports.",
+"example_translation": "두 재무 보고서 사이에 불일치가 있었다."
+},
+{
+"word": "qualitative",
+"phonetic": "/ˈkwɒl.ɪ.tət.ɪv/",
+"meaning": "질적인",
+"category": "Academic",
+"example_sentence": "Qualitative research focuses on underlying reasons and opinions.",
+"example_translation": "질적 연구는 근본적인 이유와 의견에 초점을 맞춘다."
+},
+{
+"word": "embrace",
+"phonetic": "/ɪmˈbreɪs/",
+"meaning": "받아들이다, 포용하다",
+"category": "Daily",
+"example_sentence": "It is important to embrace new technology in modern life.",
+"example_translation": "현대 생활에서는 새로운 기술을 받아들이는 것이 중요하다."
+},
+{
+"word": "revenue",
+"phonetic": "/ˈrev.ən.juː/",
+"meaning": "수익, 매출",
+"category": "Business",
+"example_sentence": "The company reported a 15% increase in annual revenue.",
+"example_translation": "그 회사는 연간 수익이 15% 증가했다고 발표했다."
+},
+{
+"word": "quantitative",
+"phonetic": "/ˈkwɒn.tɪ.tət.ɪv/",
+"meaning": "양적인",
+"category": "Academic",
+"example_sentence": "The survey provided quantitative data for our study.",
+"example_translation": "그 설문조사는 우리 연구를 위한 양적 데이터를 제공했다."
+},
+{
+"word": "foster",
+"phonetic": "/ˈfɒs.tər/",
+"meaning": "조성하다, 육성하다",
+"category": "Business",
+"example_sentence": "Good communication helps foster innovation in the team.",
+"example_translation": "원활한 소통은 팀 내 혁신을 조성하는 데 도움이 된다."
+},
+{
+"word": "reluctance",
+"phonetic": "/rɪˈlʌk.təns/",
+"meaning": "주저함, 꺼림",
+"category": "Daily",
+"example_sentence": "He showed reluctance to try the new dish.",
+"example_translation": "그는 그 새로운 요리를 시도하길 주저했다."
+},
+{
+"word": "implication",
+"phonetic": "/ˌɪm.plɪˈkeɪ.ʃən/",
+"meaning": "시사점, 함의",
+"category": "Academic",
+"example_sentence": "The policy change has major economic implications.",
+"example_translation": "그 정책 변화는 중요한 경제적 시사점을 갖는다."
+},
+{
+"word": "optimum",
+"phonetic": "/ˈɒp.tɪ.məm/",
+"meaning": "최적의, 최선의",
+"category": "Business",
+"example_sentence": "We strive to achieve optimum results with limited resources.",
+"example_translation": "우리는 제한된 자원으로 최적의 결과를 얻기 위해 노력한다."
+},
+{
+"word": "persistent",
+"phonetic": "/pəˈsɪs.tənt/",
+"meaning": "끈질긴, 지속적인",
+"category": "Daily",
+"example_sentence": "Her persistent efforts eventually paid off.",
+"example_translation": "그녀의 지속적인 노력은 결국 결실을 맺었다."
+},
+{
+"word": "deviation",
+"phonetic": "/ˌdiː.viˈeɪ.ʃən/",
+"meaning": "일탈, 편차",
+"category": "Academic",
+"example_sentence": "Any deviation from the protocol must be reported.",
+"example_translation": "프로토콜에서의 어떤 일탈도 보고되어야 한다."
+},
+{
+"word": "scrutiny",
+"phonetic": "/ˈskruː.tɪ.ni/",
+"meaning": "정밀 조사, 철저한 검토",
+"category": "Business",
+"example_sentence": "The proposal was subjected to careful scrutiny by the board.",
+"example_translation": "그 제안서는 이사회의 철저한 검토를 받았다."
+},
+{
+"word": "vulnerable",
+"phonetic": "/ˈvʌl.nər.ə.bəl/",
+"meaning": "취약한, 상처받기 쉬운",
+"category": "Daily",
+"example_sentence": "Young children are especially vulnerable to cold weather.",
+"example_translation": "어린 아이들은 춥 날씨에 특히 취약하다."
+},
+{
+"word": "variable",
+"phonetic": "/ˈveə.ri.ə.bəl/",
+"meaning": "변수, 변하기 쉬운 것",
+"category": "Academic",
+"example_sentence": "Temperature is a key variable in this experiment.",
+"example_translation": "온도는 이 실험에서 핵심 변수이다."
+},
+{
+"word": "turnover",
+"phonetic": "/ˈtɜːnˌəʊ.vər/",
+"meaning": "매출액, 이직률",
+"category": "Business",
+"example_sentence": "High employee turnover can negatively affect morale.",
+"example_translation": "높은 직원 이직률은 사기에 부정적인 영향을 미칠 수 있다."
+},
+{
+"word": "subtle",
+"phonetic": "/ˈsʌt.əl/",
+"meaning": "미묘한, 감지하기 힘든",
+"category": "Daily",
+"example_sentence": "There is a subtle difference between the two colors.",
+"example_translation": "두 색상 사이에는 미묘한 차이가 있다."
+},
+{
+"word": "validation",
+"phonetic": "/ˌvæl.ɪˈdeɪ.ʃən/",
+"meaning": "확인, 입증",
+"category": "Academic",
+"example_sentence": "The theory needs further empirical validation.",
+"example_translation": "그 이론은 추가적인 실증적 입증이 필요하다."
+},
+{
+"word": "synergy",
+"phonetic": "/ˈsɪn.ə.dʒi/",
+"meaning": "시너지, 상승 효과",
+"category": "Business",
+"example_sentence": "The merger created strong synergy between the two companies.",
+"example_translation": "그 합병은 두 회사 사이에 강력한 시너지를 창출했다."
+},
+{
+"word": "emulate",
+"phonetic": "/ˈem.jə.leɪt/",
+"meaning": "모방하다, 본받다",
+"category": "Daily",
+"example_sentence": "Young artists often try to emulate their mentors.",
+"example_translation": "젊은 예술가들은 흔히 멘토를 본받으려 한다."
+},
+{
+"word": "discourse",
+"phonetic": "/ˈdɪs.kɔːs/",
+"meaning": "담론, 담화",
+"category": "Academic",
+"example_sentence": "Political discourse has changed over the past decade.",
+"example_translation": "정치적 담론은 지난 10년간 변화했다."
+},
+{
+"word": "outsource",
+"phonetic": "/ˈaʊt.sɔːs/",
+"meaning": "외주를 주다, 아웃소싱하다",
+"category": "Business",
+"example_sentence": "Many companies outsource IT services to reduce costs.",
+"example_translation": "많은 기업이 비용을 줄이기 위해 IT 서비스를 외주 준다."
+},
+{
+"word": "tangible",
+"phonetic": "/ˈtæn.dʒə.bəl/",
+"meaning": "유형의, 실재하는",
+"category": "Daily",
+"example_sentence": "We need tangible evidence before making a decision.",
+"example_translation": "결정을 내리기 전에 유형의 증거가 필요하다."
+},
+{
+"word": "framework",
+"phonetic": "/ˈfreɪm.wɜːk/",
+"meaning": "틀, 체계",
+"category": "Academic",
+"example_sentence": "The legal framework protects consumer rights.",
+"example_translation": "그 법적 체계는 소비자 권리를 보호한다."
+},
+{
+"word": "portfolio",
+"phonetic": "/ˌpɔːtˈfəʊ.li.əʊ/",
+"meaning": "포트폴리오, 투자 자산 구성",
+"category": "Business",
+"example_sentence": "She expanded her investment portfolio into technology stocks.",
+"example_translation": "그녀는 투자 포트폴리오를 기술 주로 확대했다."
+},
+{
+"word": "candidly",
+"phonetic": "/ˈkæn.dɪd.li/",
+"meaning": "솔직하게",
+"category": "Daily",
+"example_sentence": "He spoke candidly about his past mistakes.",
+"example_translation": "그는 자신의 과거 실수에 대해 솔직하게 이야기했다."
+},
+{
+"word": "extrapolate",
+"phonetic": "/ɪkˈstræp.ə.leɪt/",
+"meaning": "추정하다, 추론하다",
+"category": "Academic",
+"example_sentence": "It is risky to extrapolate future trends from short-term data.",
+"example_translation": "단기 데이터로 미래 경향을 추정하는 것은 위험하다."
+},
+{
+"word": "compliance",
+"phonetic": "/kəmˈplaɪ.əns/",
+"meaning": "준수, 따름",
+"category": "Business",
+"example_sentence": "The company ensures full compliance with environmental laws.",
+"example_translation": "회사는 환경 법규의 철저한 준수를 보장한다."
+},
+{
+"word": "monotonous",
+"phonetic": "/məˈnɒt.ən.əs/",
+"meaning": "단조로운, 지루한",
+"category": "Daily",
+"example_sentence": "Repeating the same task all day was very monotonous.",
+"example_translation": "하루 종일 같은 작업을 반복하는 것은 매우 단조로웠다."
+},
+{
+"word": "paradox",
+"phonetic": "/ˈpær.ə.dɒks/",
+"meaning": "역설, 패러독스",
+"category": "Academic",
+"example_sentence": "It is a paradox that technology can both connect and isolate us.",
+"example_translation": "기술이 우리를 연결하면서도 고립시킬 수 있다는 것은 역설이다."
+},
+{
+"word": "liability",
+"phonetic": "/ˌlaɪ.əˈbɪl.ə.ti/",
+"meaning": "법적 책임, 부채",
+"category": "Business",
+"example_sentence": "The contract clearly states each party's liability.",
+"example_translation": "계약서에는 각 당사자의 법적 책임이 명확히 기술되어 있다."
+},
+{
+"word": "coherent",
+"phonetic": "/kəʊˈhɪə.rənt/",
+"meaning": "일관성 있는, 논리 정연한",
+"category": "Academic",
+"example_sentence": "She presented a coherent argument that convinced everyone.",
+"example_translation": "그녀는 모두를 설득할 만한 일관성 있는 주장을 펼쳤다."
+},
+{
+"word": "hospitable",
+"phonetic": "/hɒsˈpɪt.ə.bəl/",
+"meaning": "환대하는, 친절한",
+"category": "Daily",
+"example_sentence": "The locals were incredibly hospitable during our stay.",
+"example_translation": "현지인들은 우리가 머무는 동안 믿기지 않을 만큼 친절했다."
+},
+{
+"word": "monopolize",
+"phonetic": "/məˈnɒp.əl.aɪz/",
+"meaning": "독점하다",
+"category": "Business",
+"example_sentence": "One company should not monopolize the entire market.",
+"example_translation": "한 회사가 시장 전체를 독점해서는 안 된다."
+},
+{
+"word": "cognitive",
+"phonetic": "/ˈkɒɡ.nə.tɪv/",
+"meaning": "인지의, 인지적인",
+"category": "Academic",
+"example_sentence": "Puzzles can help improve cognitive abilities in older adults.",
+"example_translation": "퍼즐은 노인의 인지 능력을 향상시키는 데 도움이 될 수 있다."
+},
+{
+"word": "lenient",
+"phonetic": "/ˈliː.ni.ənt/",
+"meaning": "관대한, 너그러운",
+"category": "Daily",
+"example_sentence": "The teacher was lenient with students who were late.",
+"example_translation": "선생님은 지각한 학생들에게 관대했다."
+},
+{
+"word": "subsidy",
+"phonetic": "/ˈsʌb.sɪ.di/",
+"meaning": "보조금, 지원금",
+"category": "Business",
+"example_sentence": "Government subsidy encouraged investment in renewable energy.",
+"example_translation": "정부 보조금은 재생 에너지 분야의 투자를 장려했다."
+},
+{
+"word": "prerequisite",
+"phonetic": "/ˌpriːˈrek.wɪ.zɪt/",
+"meaning": "전제 조건, 필수 과목",
+"category": "Academic",
+"example_sentence": "Basic mathematics is a prerequisite for advanced calculus.",
+"example_translation": "기초 수학은 고급 미적분학의 전제 조건이다."
+},
+{
+"word": "pivotal",
+"phonetic": "/ˈpɪv.ə.təl/",
+"meaning": "중추적인, 매우 중요한",
+"category": "Business",
+"example_sentence": "Her speech played a pivotal role in changing public opinion.",
+"example_translation": "그녀의 연설은 여론을 바꾸는 데 중추적인 역할을 했다."
+},
+{
+"word": "skeptical",
+"phonetic": "/ˈskep.tɪ.kəl/",
+"meaning": "회의적인, 의심하는",
+"category": "Daily",
+"example_sentence": "Many people were skeptical about the new claims.",
+"example_translation": "많은 사람이 그 새로운 주장에 대해 회의적이었다."
+},
+{
+"word": "deduction",
+"phonetic": "/dɪˈdʌk.ʃən/",
+"meaning": "추론, 공제",
+"category": "Academic",
+"example_sentence": "Logical deduction led the detective to the right solution.",
+"example_translation": "논리적 추론이 탐정을 올바른 해결책으로 이끌었다."
+},
+{
+"word": "liquidity",
+"phonetic": "/lɪˈkwɪd.ə.ti/",
+"meaning": "유동성",
+"category": "Business",
+"example_sentence": "Maintaining liquidity is essential during an economic downturn.",
+"example_translation": "경기 침체기에는 유동성을 유지하는 것이 필수적이다."
+},
+{
+"word": "proactive",
+"phonetic": "/ˌprəʊˈæk.tɪv/",
+"meaning": "주도적인, 적극적인",
+"category": "Daily",
+"example_sentence": "Taking a proactive approach can prevent future problems.",
+"example_translation": "주도적인 접근 방식을 취하는 것은 향후 문제를 예방할 수 있다."
+},
+{
+"word": "thesis",
+"phonetic": "/ˈθiː.sɪs/",
+"meaning": "논문, 주제",
+"category": "Academic",
+"example_sentence": "She is currently writing her master's thesis.",
+"example_translation": "그녀는 현재 석사 학위 논문을 작성 중이다."
+},
+{
+"word": "disruptive",
+"phonetic": "/dɪsˈrʌp.tɪv/",
+"meaning": "파괴적인, 혁신적인",
+"category": "Business",
+"example_sentence": "The startup introduced a disruptive business model.",
+"example_translation": "그 스타트업은 파괴적인 비즈니스 모델을 도입했다."
+},
+{
+"word": "superficial",
+"phonetic": "/ˌsuː.pəˈfɪʃ.əl/",
+"meaning": "피상적인, 겉핥기의",
+"category": "Daily",
+"example_sentence": "Don't form an opinion based on superficial information.",
+"example_translation": "피상적인 정보에 기반해 의견을 형성하지 마라."
+},
+{
+"word": "consequence",
+"phonetic": "/ˈkɒn.sɪ.kwəns/",
+"meaning": "결과, 중요성",
+"category": "Academic",
+"example_sentence": "Every action has a consequence that must be considered.",
+"example_translation": "모든 행동에는 고려해야 할 결과가 따른다."
+},
+{
+"word": "benchmark",
+"phonetic": "/ˈbentʃ.mɑːk/",
+"meaning": "기준점, 표준",
+"category": "Daily",
+"example_sentence": "This score sets a new benchmark for future tests.",
+"example_translation": "이 점수는 향후 시험을 위한 새로운 기준점이 된다."
+},
+{
+"word": "acquisition",
+"phonetic": "/ˌæk.wɪˈzɪʃ.ən/",
+"meaning": "인수, 습득",
+"category": "Business",
+"example_sentence": "The acquisition of the rival firm boosted market share.",
+"example_translation": "경쟁사 인수는 시장 점유율을 끌어올렸다."
+},
+{
+"word": "distortion",
+"phonetic": "/dɪˈstɔː.ʃən/",
+"meaning": "왜곡",
+"category": "Academic",
+"example_sentence": "Media bias can lead to the distortion of facts.",
+"example_translation": "언론의 편향은 사실의 왜곡을 초래할 수 있다."
+},
+{
+"word": "empathy",
+"phonetic": "/ˈem.pə.θi/",
+"meaning": "타인에 대한 공감",
+"category": "Daily",
+"example_sentence": "Empathy allows us to connect with people from all walks of life.",
+"example_translation": "공감은 각계각층의 사람들과 연결될 수 있게 해준다."
+},
+{
+"word": "consortium",
+"phonetic": "/kənˈsɔː.ti.əm/",
+"meaning": "컨소시엄, 공동체",
+"category": "Business",
+"example_sentence": "Several companies formed a consortium to build the stadium.",
+"example_translation": "경기장을 짓기 위해 여러 회사가 컨소시엄을 구성했다."
+},
+{
+"word": "validity",
+"phonetic": "/vəˈlɪd.ə.ti/",
+"meaning": "타당성, 유효성",
+"category": "Academic",
+"example_sentence": "The validity of the test results was confirmed.",
+"example_translation": "검사 결과의 타당성이 확인되었다."
+},
+{
+"word": "thorough",
+"phonetic": "/ˈθʌr.ə/",
+"meaning": "철저한, 완전한",
+"category": "Daily",
+"example_sentence": "She conducted a thorough cleaning of the house.",
+"example_translation": "그녀는 집안을 철저하게 청소했다."
+},
+{
+"word": "infrastructure",
+"phonetic": "/ˈɪn.frəˌstrʌk.tʃər/",
+"meaning": "인프라, 사회 기반 시설",
+"category": "Business",
+"example_sentence": "Investment in transportation infrastructure is essential.",
+"example_translation": "교통 인프라에 대한 투자는 필수적이다."
+},
+{
+"word": "exposition",
+"phonetic": "/ˌek.spəˈzɪʃ.ən/",
+"meaning": "설명, 전시회",
+"category": "Academic",
+"example_sentence": "The essay began with a clear exposition of the problem.",
+"example_translation": "그 에세이는 문제에 대한 명확한 설명으로 시작했다."
+},
+{
+"word": "pragmatism",
+"phonetic": "/ˈpræɡ.mə.tɪ.zəm/",
+"meaning": "실용주의",
+"category": "Daily",
+"example_sentence": "His decisions are always guided by pragmatism.",
+"example_translation": "그의 결정은 항상 실용주의에 의해 이끌어진다."
+},
+{
+"word": "conglomerate",
+"phonetic": "/kənˈɡlɒm.ər.ət/",
+"meaning": "대기업 그룹, 복합기업",
+"category": "Business",
+"example_sentence": "The multinational conglomerate owns various brands.",
+"example_translation": "그 다국적 대기업 그룹은 다양한 브랜드를 소유하고 있다."
+},
+{
+"word": "paradigm",
+"phonetic": "/ˈpær.ə.daɪm/",
+"meaning": "학문적 패러다임",
+"category": "Academic",
+"example_sentence": "This discovery led to a paradigm shift in physics.",
+"example_translation": "이 발견은 물리학의 패러다임 전환으로 이어졌다."
+},
+{
+"word": "generous",
+"phonetic": "/ˈdʒen.ər.əs/",
+"meaning": "관대한, 후한",
+"category": "Daily",
+"example_sentence": "He was generous with his time and helped us a lot.",
+"example_translation": "그는 시간을 선뜻 내어주며 우리를 많이 도와주었다."
+},
+{
+"word": "equity",
+"phonetic": "/ˈek.wɪ.ti/",
+"meaning": "자기자본, 공평함",
+"category": "Business",
+"example_sentence": "The founders retained a majority equity in the startup.",
+"example_translation": "창업자들은 스타트업의 과반수 지분(자기자본)을 유지했다."
+},
+{
+"word": "preliminary",
+"phonetic": "/prɪˈlɪm.ɪ.nər.i/",
+"meaning": "예비의, 시초의",
+"category": "Academic",
+"example_sentence": "Preliminary results indicate a positive response.",
+"example_translation": "예비 결과는 긍정적인 반응을 나타낸다."
+},
+{
+"word": "compassion",
+"phonetic": "/kəmˈpæʃ.ən/",
+"meaning": "연민, 동정심",
+"category": "Daily",
+"example_sentence": "He showed deep compassion for the homeless.",
+"example_translation": "그는 노숙자들에게 깊은 연민을 보여주었다."
+},
+{
+"word": "stagnation",
+"phonetic": "/stæɡˈneɪ.ʃən/",
+"meaning": "침체, 정체",
+"category": "Business",
+"example_sentence": "Economic stagnation impacted employment opportunities.",
+"example_translation": "경제 침체는 고용 기회에 영향을 미쳤다."
+},
+{
+"word": "hypothesis",
+"phonetic": "/haɪˈpɒθ.ə.sɪs/",
+"meaning": "가설",
+"category": "Academic",
+"example_sentence": "A clear hypothesis is necessary to design an experiment.",
+"example_translation": "실험을 설계하려면 명확한 가설이 필요하다."
+},
+{
+"word": "optimistic",
+"phonetic": "/ˌɒp.tɪˈmɪs.tɪk/",
+"meaning": "낙관적인",
+"category": "Daily",
+"example_sentence": "She remains optimistic about the future despite challenges.",
+"example_translation": "그녀는 도전에 직면했음에도 불구하고 미래에 대해 낙관적이다."
+},
+{
+"word": "monopoly",
+"phonetic": "/məˈnɒp.əl.i/",
+"meaning": "독점",
+"category": "Business",
+"example_sentence": "The government cracked down on the telecom monopoly.",
+"example_translation": "정부는 통신 독점에 엄중 단속을 실시했다."
+}
+]
