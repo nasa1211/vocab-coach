@@ -1,3 +1,8 @@
+self.addEventListener('fetch', function (event) {
+  if (event.request.method !== 'GET') return;
+  event.respondWith(fetch(event.request));
+});
+
 self.addEventListener('push', function (event) {
   if (!event.data) return;
 
