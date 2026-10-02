@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
-import { STATE_WORD, pickDailyWords } from "@/lib/study-plan";
+import { STATE_WORD } from "@/lib/study-plan";
 import { getKSTDateString } from "@/lib/kst";
+import { generateStudyWords } from "@/lib/generate-study-words";
 
 export type PushSubscriptionRecord = {
   endpoint: string;
@@ -12,6 +13,7 @@ type AppState = {
   subscriptions: PushSubscriptionRecord[];
   opened: Record<string, number[]>;
   sent: Record<string, number[]>;
+  dailyWords: Record<string, WordRow[]>;
 };
 
 export type WordRow = {
@@ -34,7 +36,7 @@ export type WordRow = {
 };
 
 function emptyState(): AppState {
-  return { subscriptions: [], opened: {}, sent: {} };
+  return { subscriptions: [], opened: {}, sent: {}, dailyWords: {} };
 }
 
 function parseState(nuance: string | null): AppState {
@@ -45,13 +47,14 @@ function parseState(nuance: string | null): AppState {
       subscriptions: Array.isArray(parsed.subscriptions) ? parsed.subscriptions : [],
       opened: parsed.opened && typeof parsed.opened === "object" ? parsed.opened : {},
       sent: parsed.sent && typeof parsed.sent === "object" ? parsed.sent : {},
+      dailyWords: parsed.dailyWords && typeof parsed.dailyWords === "object" ? parsed.dailyWords : {},
     };
   } catch {
     return emptyState();
   }
 }
 
-function prune(days: Record<string, number[]>) {
+function prune(days: Record<string, unknown>) {
   const keys = Object.keys(days).sort();
   for (const key of keys.slice(0, Math.max(0, keys.length - 60))) {
     delete days[key];
@@ -72,6 +75,7 @@ async function loadState(): Promise<AppState> {
 async function saveState(state: AppState) {
   prune(state.opened);
   prune(state.sent);
+  prune(state.dailyWords);
   const nuance = JSON.stringify(state);
 
   const { data: existing, error: readError } = await supabaseAdmin
@@ -117,9 +121,25 @@ export async function findStudyWord(word: string): Promise<WordRow | null> {
   return words.find((item) => item.word.toLowerCase() === word.toLowerCase()) ?? null;
 }
 
+export async function findCachedWord(word: string): Promise<WordRow | null> {
+  const state = await loadState();
+  const cached = Object.values(state.dailyWords).flat();
+  return cached.find((item) => item.word.toLowerCase() === word.toLowerCase()) ?? null;
+}
+
 export async function getTodayPlan(date = getKSTDateString()) {
-  const [words, state] = await Promise.all([loadStudyWords(), loadState()]);
-  const picked = pickDailyWords(words, date, 3);
+  const state = await loadState();
+  let picked = state.dailyWords[date] ?? [];
+
+  if (picked.length === 0) {
+    const exclude = Object.values(state.dailyWords)
+      .flat()
+      .map((item) => item.word);
+    picked = await generateStudyWords({ count: 3, exclude });
+    state.dailyWords[date] = picked;
+    await saveState(state);
+  }
+
   const opened = new Set(state.opened[date] ?? []);
   const sent = new Set(state.sent[date] ?? []);
 
