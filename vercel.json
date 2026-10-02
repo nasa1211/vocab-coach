@@ -1,8 +1,16 @@
 {
   "crons": [
     {
-      "path": "/api/push/cron",
+      "path": "/api/push/cron?slot=1",
       "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/push/cron?slot=2",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/push/cron?slot=3",
+      "schedule": "0 9 * * *"
     }
   ]
 }

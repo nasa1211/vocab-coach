@@ -1,34 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { Volume2, Sparkles, CheckCircle2, RefreshCw, ChevronRight } from 'lucide-react';
+import { Volume2, Sparkles, RefreshCw, ChevronRight } from 'lucide-react';
+import type { WordCardData } from '@/lib/word-card';
 
-export interface QuickQuiz {
-  question: string;
-  options: string[];
-  answer_index: number;
-  explanation: string;
-}
-
-export interface WordData {
-  word: string;
-  phonetic: string;
-  meaning: string;
-  category: string;
-  nuance: string;
-  example_sentence: string;
-  example_translation: string;
-  speaking_tip: string;
-  quick_quiz: QuickQuiz;
-}
+export type { QuickQuiz, WordCardData as WordData } from '@/lib/word-card';
 
 interface WordCardProps {
-  data: WordData;
+  data: WordCardData;
   onNext?: () => void;
 }
 
 export default function WordCard({ data, onNext }: WordCardProps) {
   const [activeTab, setActiveTab] = useState<'example' | 'nuance' | 'quiz'>('example');
+  const tabCount = 1 + Number(Boolean(data.nuance)) + Number(Boolean(data.quick_quiz));
+  const tabGridClass = tabCount === 3 ? 'grid-cols-3' : tabCount === 2 ? 'grid-cols-2' : 'grid-cols-1';
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
 
@@ -118,7 +104,7 @@ export default function WordCard({ data, onNext }: WordCardProps) {
         </div>
 
         {/* 3. 탭 네비게이션 */}
-        <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-xl mb-5 text-xs font-medium text-slate-400">
+        <div className={`grid gap-1 bg-slate-950 p-1 rounded-xl mb-5 text-xs font-medium text-slate-400 ${tabGridClass}`}>
           <button
             onClick={() => setActiveTab('example')}
             className={`py-2 rounded-lg transition-all ${
@@ -127,28 +113,32 @@ export default function WordCard({ data, onNext }: WordCardProps) {
                 : 'hover:text-slate-200'
             }`}
           >
-            실전 예문
+            예문
           </button>
-          <button
-            onClick={() => setActiveTab('nuance')}
-            className={`py-2 rounded-lg transition-all ${
-              activeTab === 'nuance'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'hover:text-slate-200'
-            }`}
-          >
-            비즈니스 뉘앙스
-          </button>
-          <button
-            onClick={() => setActiveTab('quiz')}
-            className={`py-2 rounded-lg transition-all ${
-              activeTab === 'quiz'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'hover:text-slate-200'
-            }`}
-          >
-            3초 퀴즈
-          </button>
+          {data.nuance ? (
+            <button
+              onClick={() => setActiveTab('nuance')}
+              className={`py-2 rounded-lg transition-all ${
+                activeTab === 'nuance'
+                  ? 'bg-slate-800 text-white shadow-sm'
+                  : 'hover:text-slate-200'
+              }`}
+            >
+              뉘앙스
+            </button>
+          ) : null}
+          {data.quick_quiz ? (
+            <button
+              onClick={() => setActiveTab('quiz')}
+              className={`py-2 rounded-lg transition-all ${
+                activeTab === 'quiz'
+                  ? 'bg-slate-800 text-white shadow-sm'
+                  : 'hover:text-slate-200'
+              }`}
+            >
+              퀴즈
+            </button>
+          ) : null}
         </div>
 
         {/* 4. 탭 콘텐츠 영역 */}
@@ -162,10 +152,12 @@ export default function WordCard({ data, onNext }: WordCardProps) {
               <p className="text-xs text-slate-400 leading-relaxed">
                 {data.example_translation}
               </p>
-              <div className="pt-2 border-t border-slate-800/60 text-[11px] text-blue-400/90 flex items-center gap-1">
-                <span>💡 Speaking Tip:</span>
-                <span className="text-slate-300">{data.speaking_tip}</span>
-              </div>
+              {data.speaking_tip ? (
+                <div className="pt-2 border-t border-slate-800/60 text-[11px] text-blue-400/90 flex items-center gap-1">
+                  <span>💡 Speaking Tip:</span>
+                  <span className="text-slate-300">{data.speaking_tip}</span>
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -182,14 +174,14 @@ export default function WordCard({ data, onNext }: WordCardProps) {
           )}
 
           {/* [탭 3] 3초 퀴즈 */}
-          {activeTab === 'quiz' && (
+          {activeTab === 'quiz' && data.quick_quiz && (
             <div>
               <p className="text-xs font-medium text-slate-200 mb-3">
                 {data.quick_quiz.question}
               </p>
               <div className="space-y-2">
                 {data.quick_quiz.options.map((option, idx) => {
-                  const isCorrect = idx === data.quick_quiz.answer_index;
+                  const isCorrect = idx === data.quick_quiz?.answer_index;
                   const isSelected = selectedAnswer === idx;
 
                   let btnStyle = 'bg-slate-800/80 text-slate-300 hover:bg-slate-700/80';

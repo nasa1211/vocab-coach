@@ -8,16 +8,18 @@ export default function PushSubscriptionButton() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // 기존 구독 상태 체크
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      navigator.serviceWorker.ready.then((registration) => {
-        registration.pushManager.getSubscription().then((subscription) => {
-          if (subscription) {
-            setIsSubscribed(true);
-          }
-        });
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+    navigator.serviceWorker.getRegistration().then(async (registration) => {
+      const subscription = await registration?.pushManager.getSubscription();
+      if (!subscription) return;
+      setIsSubscribed(true);
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription }),
       });
-    }
+    });
   }, []);
 
   const handleSubscribe = async () => {
@@ -54,23 +56,34 @@ export default function PushSubscriptionButton() {
         applicationServerKey: convertedVapidKey as unknown as BufferSource,
       });
 
-      // 6. 생성된 구독 정보(Subscription)를 서버/DB로 전송 및 테스트 발송
-      const res = await fetch('/api/push/send', {
+      const saveRes = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription }),
+      });
+
+      if (!saveRes.ok) {
+        alert('알림 구독을 저장하지 못했습니다.');
+        return;
+      }
+
+      setIsSubscribed(true);
+
+      const testRes = await fetch('/api/push/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          subscription: subscription,
-          title: '☕ 학습 알림 설정 완료!',
-          body: '내일부터 매일 출퇴근길 맞춤 단어 알림이 도착합니다.',
+          subscription,
+          title: '학습 알림이 켜졌습니다',
+          body: '아침 8시, 낮 1시, 저녁 6시에 단어와 예문이 도착합니다.',
           url: '/',
         }),
       });
 
-      if (res.ok) {
-        setIsSubscribed(true);
-        alert('출퇴근 단어 알림 구독이 완료되었습니다! 🚀');
+      if (testRes.ok) {
+        alert('하루 세 번 단어 알림을 저장했습니다.');
       } else {
-        alert('서버 등록에 실패했습니다.');
+        alert('구독은 저장됐지만 확인 알림은 보내지 못했습니다.');
       }
     } catch (error) {
       console.error('푸시 구독 중 오류 발생:', error);
@@ -81,16 +94,16 @@ export default function PushSubscriptionButton() {
   };
 
   return (
-    <div className="p-5 bg-slate-900 text-white rounded-2xl shadow-lg border border-slate-800 max-w-sm">
+    <div className="w-full max-w-md p-5 bg-slate-900 text-white rounded-2xl shadow-lg border border-slate-800">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full font-medium">
           출퇴근 3분 코치
         </span>
         <span className="text-xs text-slate-400">PWA Web Push</span>
       </div>
-      <h3 className="font-bold text-base mb-1">매일 바쁜 일상 속 단어 잊지 않기</h3>
+      <h3 className="font-bold text-base mb-1">하루 세 번, 단어와 예문</h3>
       <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-        출퇴근 시간에 딱 맞는 비즈니스 실전 단어 3개를 푸시 알림으로 받아보세요.
+        아침 8시, 낮 1시, 저녁 6시에 오늘 공부할 단어와 예문을 알림으로 받습니다.
       </p>
       <button
         onClick={handleSubscribe}
@@ -106,7 +119,7 @@ export default function PushSubscriptionButton() {
         ) : isSubscribed ? (
           '✓ 학습 알림 켜짐'
         ) : (
-          '🔔 출퇴근 맞춤 알림 켜기'
+          '🔔 하루 세 번 알림 켜기'
         )}
       </button>
     </div>
