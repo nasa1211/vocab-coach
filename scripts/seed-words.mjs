@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import { MODEL_NAME } from '../lib/gemini.ts';
 
 // .env.local 환경변수 로드
 dotenv.config({ path: '.env.local' });
@@ -72,40 +73,26 @@ ${history.slice(-100).join(', ')}
 }
 `;
 
-// 시도할 후보 모델 목록 (우선순위 순)
-    const candidateModels = [
-  "gemini-3.7-flash",       // 1순위: 최신 초고속 모델
-  "gemini-3.6-flash",       // 2순위: 대체 Flash 모델
-  "gemini-3.5-flash",       // 3순위: 검증된 백업 Flash 모델
-  "gemini-3.1-pro-preview", // 4순위: 고성능 추론 모델
-  "gemini-2.5-pro",         // 5순위: 비상용 안정 버전
-    ];
-
     let data = null;
 
-    // 💡 모델 폴링 (Fallback) 루프
-    for (const modelName of candidateModels) {
-      try {
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          generationConfig: { temperature: 0.95 },
-        });
+    try {
+      const model = genAI.getGenerativeModel({
+        model: MODEL_NAME,
+        generationConfig: { temperature: 0.95 },
+      });
 
-        const result = await model.generateContent(prompt);
-        const parsed = safeJsonParse(result.response.text());
+      const result = await model.generateContent(prompt);
+      const parsed = safeJsonParse(result.response.text());
 
-        if (parsed && parsed.word) {
-          data = parsed;
-          break; // 성공 시 폴링 루프 탈출
-        }
-      } catch (err) {
-        console.warn(`⚠️ [${modelName}] 생성 실패 -> 다음 후보 모델 시도:`, err?.message || err);
+      if (parsed && parsed.word) {
+        data = parsed;
       }
+    } catch (err) {
+      console.warn(`⚠️ [${MODEL_NAME}] 생성 실패:`, err?.message || err);
     }
 
-    // 모든 후보 모델이 실패했을 경우
     if (!data || !data.word) {
-      console.error(`❌ 모든 Gemini 모델 폴링 실패: 단어를 생성하지 못했습니다.`);
+      console.error(`❌ Gemini 모델(${MODEL_NAME})이 단어를 생성하지 못했습니다.`);
       continue;
     }
 
