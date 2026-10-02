@@ -78,29 +78,31 @@ async function saveState(state: AppState) {
   prune(state.dailyWords);
   const nuance = JSON.stringify(state);
 
-  const { data: existing, error: readError } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("words")
-    .select("id")
+    .update({ nuance })
     .eq("word", STATE_WORD)
-    .maybeSingle();
+    .select("id");
 
-  if (readError) throw new Error(readError.message);
-
-  if (!existing) {
-    const { error } = await supabaseAdmin.from("words").insert({
-      word: STATE_WORD,
-      category: "system",
-      meaning: "앱 내부 상태",
-      example_sentence: "-",
-      example_translation: "-",
-      nuance,
-    });
-    if (!error) return;
-    if (error.code !== "23505") throw new Error(error.message);
-  }
-
-  const { error } = await supabaseAdmin.from("words").update({ nuance }).eq("word", STATE_WORD);
   if (error) throw new Error(error.message);
+  if (data && data.length > 0) return;
+
+  const { error: insertError } = await supabaseAdmin.from("words").insert({
+    word: STATE_WORD,
+    category: "system",
+    meaning: "앱 내부 상태",
+    example_sentence: "-",
+    example_translation: "-",
+    nuance,
+  });
+  if (!insertError) return;
+  if (insertError.code !== "23505") throw new Error(insertError.message);
+
+  const { error: retryError } = await supabaseAdmin
+    .from("words")
+    .update({ nuance })
+    .eq("word", STATE_WORD);
+  if (retryError) throw new Error(retryError.message);
 }
 
 export async function loadStudyWords(): Promise<WordRow[]> {
@@ -127,39 +129,72 @@ export async function findCachedWord(word: string): Promise<WordRow | null> {
   return cached.find((item) => item.word.toLowerCase() === word.toLowerCase()) ?? null;
 }
 
-export async function getTodayPlan(date = getKSTDateString()) {
-  const state = await loadState();
-  let picked = state.dailyWords[date] ?? [];
+type TodaySlot = {
+  slot: number;
+  row: WordRow;
+  opened: boolean;
+  sent: boolean;
+};
 
-  if (picked.length === 0) {
-    const exclude = Object.values(state.dailyWords)
-      .flat()
-      .map((item) => item.word);
-    picked = await generateStudyWords({ count: 3, exclude });
-    state.dailyWords[date] = picked;
-    await saveState(state);
-  }
-
+function toTodaySlots(state: AppState, date: string, picked: WordRow[]): TodaySlot[] {
   const opened = new Set(state.opened[date] ?? []);
   const sent = new Set(state.sent[date] ?? []);
+  return picked.map((row, index) => {
+    const slot = index + 1;
+    return {
+      slot,
+      row,
+      opened: opened.has(slot),
+      sent: sent.has(slot),
+    };
+  });
+}
 
-  return {
-    date,
-    slots: picked.map((row, index) => {
-      const slot = index + 1;
-      return {
-        slot,
-        row,
-        opened: opened.has(slot),
-        sent: sent.has(slot),
-      };
-    }),
-  };
+async function ensureTodayWords(state: AppState, date: string) {
+  const picked = state.dailyWords[date] ?? [];
+  if (picked.length > 0) return { picked, dirty: false };
+
+  const exclude = Object.values(state.dailyWords)
+    .flat()
+    .map((item) => item.word);
+  const generated = await generateStudyWords({ count: 3, exclude });
+  state.dailyWords[date] = generated;
+  return { picked: generated, dirty: true };
+}
+
+export async function getTodayPlan(date = getKSTDateString()) {
+  const state = await loadState();
+  const { picked, dirty } = await ensureTodayWords(state, date);
+  if (dirty) await saveState(state);
+  return { date, slots: toTodaySlots(state, date, picked) };
+}
+
+export async function getTodayStudy(
+  chooseSlot: (slots: TodaySlot[]) => number | null,
+  date = getKSTDateString()
+) {
+  const state = await loadState();
+  const { picked, dirty: wordsDirty } = await ensureTodayWords(state, date);
+  let slots = toTodaySlots(state, date, picked);
+  const slot = chooseSlot(slots);
+  let dirty = wordsDirty;
+
+  if (slot && !slots.some((item) => item.slot === slot && item.opened)) {
+    const marks = new Set(state.opened[date] ?? []);
+    marks.add(slot);
+    state.opened[date] = [...marks];
+    dirty = true;
+    slots = slots.map((item) => (item.slot === slot ? { ...item, opened: true } : item));
+  }
+
+  if (dirty) await saveState(state);
+  return { date, slots, currentSlot: slot };
 }
 
 async function mark(date: string, slot: number, field: "opened" | "sent") {
   const state = await loadState();
   const marks = new Set(state[field][date] ?? []);
+  if (marks.has(slot)) return;
   marks.add(slot);
   state[field][date] = [...marks];
   await saveState(state);

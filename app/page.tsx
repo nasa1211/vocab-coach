@@ -14,6 +14,7 @@ type StudySlot = {
   word: string;
   opened: boolean;
   sent: boolean;
+  card?: WordCardData;
 };
 
 type StudyResponse = {
@@ -40,6 +41,38 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
+  const studyRef = useRef<StudyResponse | null>(null);
+  studyRef.current = study;
+
+  const rememberOpened = (slot: number) => {
+    const current = studyRef.current;
+    const target = current?.slots.find((item) => item.slot === slot);
+    if (!target || target.opened) return;
+    void fetch("/api/study/opened", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slot }),
+    });
+  };
+
+  const showCachedSlot = (slot: number) => {
+    const current = studyRef.current;
+    const target = current?.slots.find((item) => item.slot === slot);
+    if (!current || !target?.card) return false;
+    rememberOpened(slot);
+    const next = {
+      ...current,
+      currentSlot: slot,
+      card: target.card,
+      slots: current.slots.map((item) => (item.slot === slot ? { ...item, opened: true } : item)),
+    };
+    studyRef.current = next;
+    setStudy(next);
+    setLoading(false);
+    return true;
+  };
+  const showCachedSlotRef = useRef(showCachedSlot);
+  showCachedSlotRef.current = showCachedSlot;
 
   const loadStudy = useCallback(async (query = "", initial = false) => {
     const id = ++requestId.current;
@@ -53,6 +86,7 @@ export default function HomePage() {
       if (!response.ok) {
         throw new Error(body.error || "학습 카드를 불러오지 못했습니다.");
       }
+      studyRef.current = body;
       setStudy(body);
     } catch (err) {
       if (id !== requestId.current) return;
@@ -65,11 +99,16 @@ export default function HomePage() {
   const applyLocation = useCallback(() => {
     const location = readLocation();
     setActiveTab(location.tab);
-    if (location.loadStudy) {
-      void loadStudy(location.query, true);
-    } else {
+    if (!location.loadStudy) {
       setLoading(false);
+      return;
     }
+
+    const params = new URLSearchParams(window.location.search);
+    const slot = Number(params.get("slot") || "");
+    if (!params.get("word") && slot && showCachedSlotRef.current(slot)) return;
+
+    void loadStudy(location.query, !studyRef.current);
   }, [loadStudy]);
 
   useEffect(() => {
@@ -90,7 +129,7 @@ export default function HomePage() {
   const openSlot = (slot: number) => {
     window.history.pushState(null, "", `/?tab=today&slot=${slot}`);
     setActiveTab("today");
-    void loadStudy(`?slot=${slot}`);
+    if (!showCachedSlot(slot)) void loadStudy(`?slot=${slot}`);
   };
 
   const openNext = () => {
@@ -151,7 +190,11 @@ export default function HomePage() {
                 {error}
               </div>
             ) : study ? (
-              <WordCard key={study.card.word} data={study.card} onNext={openNext} />
+              <WordCard
+                key={(study.slots.find((item) => item.slot === study.currentSlot)?.card ?? study.card).word}
+                data={study.slots.find((item) => item.slot === study.currentSlot)?.card ?? study.card}
+                onNext={openNext}
+              />
             ) : null}
           </div>
         )}
