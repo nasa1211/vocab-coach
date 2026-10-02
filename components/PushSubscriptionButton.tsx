@@ -8,10 +8,11 @@ export default function PushSubscriptionButton() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if (!('serviceWorker' in navigator)) return;
 
-    navigator.serviceWorker.getRegistration().then(async (registration) => {
-      const subscription = await registration?.pushManager.getSubscription();
+    navigator.serviceWorker.register('/sw.js').then(async (registration) => {
+      if (!('PushManager' in window)) return;
+      const subscription = await registration.pushManager.getSubscription();
       if (!subscription) return;
       setIsSubscribed(true);
       await fetch('/api/push/subscribe', {
