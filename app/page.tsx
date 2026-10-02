@@ -1,9 +1,11 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useState } from 'react';
-import WordCard from '@/components/WordCard';
-import PushSubscriptionButton from '@/components/PushSubscriptionButton';
-import type { WordCardData } from '@/lib/word-card';
+import { useCallback, useEffect, useRef, useState } from "react";
+import WordCard from "@/components/WordCard";
+import BottomNav, { type AppTab } from "@/components/BottomNav";
+import HistoryList from "@/components/HistoryList";
+import SettingsPanel from "@/components/SettingsPanel";
+import type { WordCardData } from "@/lib/word-card";
 
 type StudySlot = {
   slot: number;
@@ -21,50 +23,73 @@ type StudyResponse = {
   card: WordCardData;
 };
 
+function readLocation() {
+  const params = new URLSearchParams(window.location.search);
+  const word = params.get("word");
+  const slot = params.get("slot");
+  const tabParam = params.get("tab");
+  const tab: AppTab =
+    word || slot ? "today" : tabParam === "history" || tabParam === "settings" ? tabParam : "today";
+  const query = word ? `?word=${encodeURIComponent(word)}` : slot ? `?slot=${encodeURIComponent(slot)}` : "";
+  return { tab, query, loadStudy: tab === "today" };
+}
+
 export default function HomePage() {
+  const [activeTab, setActiveTab] = useState<AppTab>("today");
   const [study, setStudy] = useState<StudyResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestId = useRef(0);
 
-  const loadStudy = useCallback(async (query = '') => {
-    setLoading(true);
+  const loadStudy = useCallback(async (query = "", initial = false) => {
+    const id = ++requestId.current;
+    if (initial) setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/study${query}`, { cache: 'no-store' });
+      const response = await fetch(`/api/study${query}`, { cache: "no-store" });
       const body = await response.json();
+      if (id !== requestId.current) return;
       if (!response.ok) {
-        throw new Error(body.error || '학습 카드를 불러오지 못했습니다.');
+        throw new Error(body.error || "학습 카드를 불러오지 못했습니다.");
       }
       setStudy(body);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '학습 카드를 불러오지 못했습니다.');
+      if (id !== requestId.current) return;
+      setError(err instanceof Error ? err.message : "학습 카드를 불러오지 못했습니다.");
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
   }, []);
 
-  const loadFromLocation = useCallback(() => {
-    const params = new URLSearchParams(window.location.search);
-    const word = params.get('word');
-    const slot = params.get('slot');
-    const query = word
-      ? `?word=${encodeURIComponent(word)}`
-      : slot
-        ? `?slot=${encodeURIComponent(slot)}`
-        : '';
-    void loadStudy(query);
+  const applyLocation = useCallback(() => {
+    const location = readLocation();
+    setActiveTab(location.tab);
+    if (location.loadStudy) {
+      void loadStudy(location.query, true);
+    } else {
+      setLoading(false);
+    }
   }, [loadStudy]);
 
   useEffect(() => {
-    loadFromLocation();
-    window.addEventListener('popstate', loadFromLocation);
-    return () => window.removeEventListener('popstate', loadFromLocation);
-  }, [loadFromLocation]);
+    applyLocation();
+    window.addEventListener("popstate", applyLocation);
+    return () => window.removeEventListener("popstate", applyLocation);
+  }, [applyLocation]);
+
+  const selectTab = (tab: AppTab) => {
+    const params = new URLSearchParams();
+    params.set("tab", tab);
+    if (tab === "today" && study?.currentSlot) params.set("slot", String(study.currentSlot));
+    window.history.pushState(null, "", `/?${params.toString()}`);
+    setActiveTab(tab);
+    if (tab === "today" && !study) void loadStudy("", true);
+  };
 
   const openSlot = (slot: number) => {
-    const url = `/?slot=${slot}`;
-    window.history.pushState(null, '', url);
+    window.history.pushState(null, "", `/?tab=today&slot=${slot}`);
+    setActiveTab("today");
     void loadStudy(`?slot=${slot}`);
   };
 
@@ -76,52 +101,66 @@ export default function HomePage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 py-8 px-4 flex flex-col items-center gap-5">
-      <div className="text-center space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-white">세 장의 영어</h1>
-        <p className="text-xs text-slate-400">단어와 예문을 아침, 낮, 저녁에 한 장씩 복습합니다.</p>
-      </div>
-
-      <PushSubscriptionButton />
-
-      {study && (
-        <div className="w-full max-w-md grid grid-cols-3 gap-2">
-          {study.slots.map((slot) => {
-            const selected = slot.slot === study.currentSlot;
-            return (
-              <button
-                key={slot.slot}
-                onClick={() => openSlot(slot.slot)}
-                className={`rounded-2xl border px-2 py-2 text-left transition-colors ${
-                  selected
-                    ? 'border-blue-500 bg-blue-500/10'
-                    : 'border-slate-800 bg-slate-900 hover:bg-slate-800'
-                }`}
-              >
-                <p className="text-[11px] text-slate-400">
-                  {slot.label} {slot.time}
-                </p>
-                <p className="text-xs font-semibold text-white truncate">{slot.word}</p>
-                <p className="text-[10px] text-slate-500">{slot.opened ? '학습함' : '아직'}</p>
-              </button>
-            );
-          })}
+    <div className="min-h-screen bg-slate-50 text-slate-800 ios-safe-content-pb dark:bg-slate-950 dark:text-slate-100">
+      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+        <div className="mx-auto max-w-md px-4 pb-3">
+          <h1 className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">세 장의 영어</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            단어와 예문을 아침, 낮, 저녁에 한 장씩 복습합니다.
+          </p>
         </div>
-      )}
+      </header>
 
-      <div className="w-full max-w-md">
-        {loading ? (
-          <div className="w-full h-[520px] bg-slate-900/50 border border-slate-800 rounded-3xl flex items-center justify-center">
-            <p className="text-xs text-slate-400 animate-pulse">오늘의 단어와 예문을 불러오는 중입니다.</p>
+      <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-4 py-5">
+        {activeTab === "today" && (
+          <div className="animate-fadeIn flex flex-col gap-5">
+            {study && (
+              <div className="grid grid-cols-3 gap-2">
+                {study.slots.map((slot) => {
+                  const selected = slot.slot === study.currentSlot;
+                  return (
+                    <button
+                      key={slot.slot}
+                      type="button"
+                      onClick={() => openSlot(slot.slot)}
+                      className={`rounded-2xl border px-2 py-2 text-left transition-colors ${
+                        selected
+                          ? "border-blue-500 bg-blue-500/10"
+                          : "border-slate-200 bg-white hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {slot.label} {slot.time}
+                      </p>
+                      <p className="truncate text-xs font-semibold text-slate-900 dark:text-white">{slot.word}</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                        {slot.opened ? "학습함" : "아직"}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {loading && !study ? (
+              <div className="flex h-[520px] w-full items-center justify-center rounded-3xl border border-slate-200 bg-white/70 dark:border-slate-800 dark:bg-slate-900/50">
+                <p className="animate-pulse text-xs text-slate-400">오늘의 단어와 예문을 불러오는 중입니다.</p>
+              </div>
+            ) : error ? (
+              <div className="w-full rounded-3xl border border-slate-200 bg-white p-6 text-sm text-rose-600 dark:border-slate-800 dark:bg-slate-900 dark:text-rose-300">
+                {error}
+              </div>
+            ) : study ? (
+              <WordCard key={study.card.word} data={study.card} onNext={openNext} />
+            ) : null}
           </div>
-        ) : error ? (
-          <div className="w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 text-sm text-rose-300">
-            {error}
-          </div>
-        ) : study ? (
-          <WordCard key={study.card.word} data={study.card} onNext={openNext} />
-        ) : null}
-      </div>
-    </main>
+        )}
+
+        {activeTab === "history" && <HistoryList />}
+        {activeTab === "settings" && <SettingsPanel />}
+      </main>
+
+      <BottomNav activeTab={activeTab} onChange={selectTab} />
+    </div>
   );
 }

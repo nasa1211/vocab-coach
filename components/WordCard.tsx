@@ -75,7 +75,7 @@ export default function WordCard({ data, onNext }: WordCardProps) {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl text-slate-100 flex flex-col justify-between min-h-[520px]">
+    <div className="mx-auto flex min-h-[520px] w-full max-w-md flex-col justify-between rounded-3xl border border-slate-200 bg-white p-6 text-slate-800 shadow-xl dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100">
       {/* 1. 상단 바 (카테고리 & 발음 듣기) */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -85,7 +85,7 @@ export default function WordCard({ data, onNext }: WordCardProps) {
           </span>
           <button
             onClick={handlePlayAudio}
-            className="p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors active:scale-95"
+            className="rounded-full bg-slate-100 p-2.5 text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-900 active:scale-95 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
             title="발음 듣기"
           >
             <Volume2 className="w-5 h-5" />
@@ -94,23 +94,23 @@ export default function WordCard({ data, onNext }: WordCardProps) {
 
         {/* 2. 핵심 표제어 & 발음기호 */}
         <div className="mb-6 text-center">
-          <h2 className="text-3xl font-extrabold tracking-tight text-white mb-1">
+          <h2 className="mb-1 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
             {data.word}
           </h2>
-          <p className="text-sm font-mono text-slate-400">{data.phonetic}</p>
-          <p className="mt-3 text-lg font-semibold text-emerald-400">
+          <p className="font-mono text-sm text-slate-500 dark:text-slate-400">{data.phonetic}</p>
+          <p className="mt-3 text-lg font-semibold text-emerald-600 dark:text-emerald-400">
             {data.meaning}
           </p>
         </div>
 
         {/* 3. 탭 네비게이션 */}
-        <div className={`grid gap-1 bg-slate-950 p-1 rounded-xl mb-5 text-xs font-medium text-slate-400 ${tabGridClass}`}>
+        <div className={`mb-5 grid gap-1 rounded-xl bg-slate-100 p-1 text-xs font-medium text-slate-500 dark:bg-slate-950 dark:text-slate-400 ${tabGridClass}`}>
           <button
             onClick={() => setActiveTab('example')}
             className={`py-2 rounded-lg transition-all ${
               activeTab === 'example'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'hover:text-slate-200'
+                ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
+                : 'hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
             예문
@@ -120,8 +120,8 @@ export default function WordCard({ data, onNext }: WordCardProps) {
               onClick={() => setActiveTab('nuance')}
               className={`py-2 rounded-lg transition-all ${
                 activeTab === 'nuance'
-                  ? 'bg-slate-800 text-white shadow-sm'
-                  : 'hover:text-slate-200'
+                  ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
+                  : 'hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
               뉘앙스
@@ -132,8 +132,8 @@ export default function WordCard({ data, onNext }: WordCardProps) {
               onClick={() => setActiveTab('quiz')}
               className={`py-2 rounded-lg transition-all ${
                 activeTab === 'quiz'
-                  ? 'bg-slate-800 text-white shadow-sm'
-                  : 'hover:text-slate-200'
+                  ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
+                  : 'hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
               퀴즈
@@ -142,20 +142,20 @@ export default function WordCard({ data, onNext }: WordCardProps) {
         </div>
 
         {/* 4. 탭 콘텐츠 영역 */}
-        <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 min-h-[160px] flex flex-col justify-center">
+        <div className="flex min-h-[160px] flex-col justify-center rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800/80 dark:bg-slate-950/60">
           {/* [탭 1] 실전 예문 */}
           {activeTab === 'example' && (
             <div className="space-y-3">
-              <p className="text-sm text-slate-200 font-medium leading-relaxed">
-                "{data.example_sentence}"
+              <p className="text-sm font-medium leading-relaxed text-slate-800 dark:text-slate-200">
+                &quot;{data.example_sentence}&quot;
               </p>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
                 {data.example_translation}
               </p>
               {data.speaking_tip ? (
-                <div className="pt-2 border-t border-slate-800/60 text-[11px] text-blue-400/90 flex items-center gap-1">
+                <div className="flex items-center gap-1 border-t border-slate-200 pt-2 text-[11px] text-blue-600 dark:border-slate-800/60 dark:text-blue-400/90">
                   <span>💡 Speaking Tip:</span>
-                  <span className="text-slate-300">{data.speaking_tip}</span>
+                  <span className="text-slate-600 dark:text-slate-300">{data.speaking_tip}</span>
                 </div>
               ) : null}
             </div>
@@ -164,10 +164,10 @@ export default function WordCard({ data, onNext }: WordCardProps) {
           {/* [탭 2] 비즈니스 뉘앙스 */}
           {activeTab === 'nuance' && (
             <div className="space-y-2">
-              <p className="text-xs font-semibold text-slate-300">
+              <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                 🔍 왜 사전에 나오는 뜻과 다를까요?
               </p>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
                 {data.nuance}
               </p>
             </div>
@@ -176,7 +176,7 @@ export default function WordCard({ data, onNext }: WordCardProps) {
           {/* [탭 3] 3초 퀴즈 */}
           {activeTab === 'quiz' && data.quick_quiz && (
             <div>
-              <p className="text-xs font-medium text-slate-200 mb-3">
+              <p className="mb-3 text-xs font-medium text-slate-800 dark:text-slate-200">
                 {data.quick_quiz.question}
               </p>
               <div className="space-y-2">
@@ -184,7 +184,7 @@ export default function WordCard({ data, onNext }: WordCardProps) {
                   const isCorrect = idx === data.quick_quiz?.answer_index;
                   const isSelected = selectedAnswer === idx;
 
-                  let btnStyle = 'bg-slate-800/80 text-slate-300 hover:bg-slate-700/80';
+                  let btnStyle = 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:bg-slate-700/80';
                   if (showExplanation) {
                     if (isCorrect) btnStyle = 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
                     else if (isSelected) btnStyle = 'bg-rose-500/20 text-rose-300 border border-rose-500/40';
@@ -203,7 +203,7 @@ export default function WordCard({ data, onNext }: WordCardProps) {
                 })}
               </div>
               {showExplanation && (
-                <p className="mt-3 text-[11px] text-slate-400 border-t border-slate-800/60 pt-2">
+                <p className="mt-3 border-t border-slate-200 pt-2 text-[11px] text-slate-500 dark:border-slate-800/60 dark:text-slate-400">
                   {data.quick_quiz.explanation}
                 </p>
               )}
@@ -213,14 +213,14 @@ export default function WordCard({ data, onNext }: WordCardProps) {
       </div>
 
       {/* 5. 하단 액션 버튼 */}
-      <div className="mt-6 flex items-center justify-between gap-3 pt-4 border-t border-slate-800/80">
+      <div className="mt-6 flex items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-slate-800/80">
         <button
           onClick={() => {
             setSelectedAnswer(null);
             setShowExplanation(false);
             setActiveTab('example');
           }}
-          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 px-3 py-2 rounded-xl hover:bg-slate-800/60 transition-colors"
+          className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-200"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           다시 보기
