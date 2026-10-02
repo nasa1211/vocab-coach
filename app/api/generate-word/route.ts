@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { MODEL_NAME } from "@/lib/gemini";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-const CANDIDATE_MODELS = [
-  "gemini-1.5-flash",
-  "gemini-1.5-pro",
-];
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
@@ -107,37 +103,29 @@ ${targetInstruction}${excludeInstruction}
 `;
 
     let parsedData = null;
-    let lastError: any = null;
 
-    for (const modelName of CANDIDATE_MODELS) {
-      try {
-        console.time(`⏱️ [AI Query - ${modelName}]`);
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          generationConfig: {
-            temperature: 0.8,
-            responseMimeType: "application/json",
-          },
-        });
+    try {
+      console.time(`⏱️ [AI Query - ${MODEL_NAME}]`);
+      const model = genAI.getGenerativeModel({
+        model: MODEL_NAME,
+        generationConfig: {
+          temperature: 0.8,
+          responseMimeType: "application/json",
+        },
+      });
 
-        const result = await model.generateContent(prompt);
-        console.timeEnd(`⏱️ [AI Query - ${modelName}]`);
+      const result = await model.generateContent(prompt);
+      console.timeEnd(`⏱️ [AI Query - ${MODEL_NAME}]`);
 
-        const responseText = result.response.text();
-
-        if (responseText) {
-          parsedData = JSON.parse(responseText);
-          break;
-        }
-      } catch (err: any) {
-        console.warn(`⚠️ [Gemini Fail] ${modelName}:`, err?.message || err);
-        lastError = err;
+      const responseText = result.response.text();
+      if (!responseText) {
+        throw new Error("Gemini 응답이 비어 있습니다.");
       }
-    }
-
-    if (!parsedData) {
+      parsedData = JSON.parse(responseText);
+    } catch (err: any) {
+      console.warn(`⚠️ [Gemini Fail] ${MODEL_NAME}:`, err?.message || err);
       return NextResponse.json(
-        { error: "단어 생성 실패", details: lastError?.message },
+        { error: "단어 생성 실패", details: err?.message },
         { status: 500 }
       );
     }

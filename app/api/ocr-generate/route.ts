@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { MODEL_NAME } from '@/lib/gemini';
 
 export async function POST(req: Request) {
   try {
@@ -27,9 +28,8 @@ export async function POST(req: Request) {
     // 2. GoogleGenerativeAI SDK 초기화 및 모델 선택
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // SDK는 'gemini-1.5-flash' 또는 'gemini-2.0-flash'를 지정하면 자동으로 올바른 API 엔드포인트를 호출합니다.
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: MODEL_NAME,
       generationConfig: {
         responseMimeType: 'application/json',
         temperature: 0.2,
