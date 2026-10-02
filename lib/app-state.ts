@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase";
-import { STATE_WORD } from "@/lib/study-plan";
+import { DAILY_SLOTS, STATE_WORD } from "@/lib/study-plan";
 import { getKSTDateString } from "@/lib/kst";
 import { generateStudyWords } from "@/lib/generate-study-words";
 
@@ -178,6 +178,32 @@ export async function listSubscriptions() {
   return state.subscriptions;
 }
 
+export async function listPastDays(today = getKSTDateString()) {
+  const state = await loadState();
+
+  return Object.entries(state.dailyWords)
+    .filter((entry): entry is [string, WordRow[]] => {
+      const [date, rows] = entry;
+      return date < today && Array.isArray(rows) && rows.length > 0;
+    })
+    .sort(([left], [right]) => right.localeCompare(left))
+    .map(([date, rows]) => ({
+      date,
+      slots: rows.map((row, index) => {
+        const meta = DAILY_SLOTS[index];
+        return {
+          slot: index + 1,
+          label: meta?.label ?? `${index + 1}회`,
+          time: meta?.time ?? "",
+          word: row.word,
+          meaning: row.meaning ?? "",
+          exampleSentence: row.example_sentence ?? "",
+          exampleTranslation: row.example_translation ?? "",
+        };
+      }),
+    }));
+}
+
 export async function saveSubscription(subscription: {
   endpoint: string;
   keys: { p256dh: string; auth: string };
@@ -191,6 +217,12 @@ export async function saveSubscription(subscription: {
       auth: subscription.keys.auth,
     },
   ];
+  await saveState(state);
+}
+
+export async function removeSubscription(endpoint: string) {
+  const state = await loadState();
+  state.subscriptions = state.subscriptions.filter((item) => item.endpoint !== endpoint);
   await saveState(state);
 }
 
