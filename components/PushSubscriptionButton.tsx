@@ -94,33 +94,18 @@ export default function PushSubscriptionButton() {
   };
 
   return (
-    <div className="w-full max-w-md p-5 bg-slate-900 text-white rounded-2xl shadow-lg border border-slate-800">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full font-medium">
-          출퇴근 3분 코치
-        </span>
-        <span className="text-xs text-slate-400">PWA Web Push</span>
-      </div>
-      <h3 className="font-bold text-base mb-1">하루 세 번, 단어와 예문</h3>
-      <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-        아침 8시, 낮 1시, 저녁 6시에 오늘 공부할 단어와 예문을 알림으로 받습니다.
-      </p>
+    <div className="w-full max-w-md flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2">
+      <p className="text-xs text-slate-400">아침 8시 · 낮 1시 · 저녁 6시</p>
       <button
         onClick={handleSubscribe}
         disabled={isSubscribed || loading}
-        className={`w-full py-2.5 px-4 text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-2 ${
+        className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
           isSubscribed
-            ? 'bg-slate-800 text-emerald-400 border border-emerald-500/30 cursor-default'
-            : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md active:scale-95'
+            ? 'cursor-default text-emerald-400'
+            : 'bg-blue-600 text-white hover:bg-blue-500 active:scale-95'
         }`}
       >
-        {loading ? (
-          '설정 중...'
-        ) : isSubscribed ? (
-          '✓ 학습 알림 켜짐'
-        ) : (
-          '🔔 하루 세 번 알림 켜기'
-        )}
+        {loading ? '설정 중...' : isSubscribed ? '알림 켜짐' : '알림 켜기'}
       </button>
     </div>
   );
