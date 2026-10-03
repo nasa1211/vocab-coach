@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findCachedWord, getTodayStudy } from "@/lib/app-state";
-import { DAILY_SLOTS, isDailySlotDue } from "@/lib/study-plan";
+import { DAILY_SLOTS, isDailySlotReleased } from "@/lib/study-plan";
 import { toWordCard } from "@/lib/word-card";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
           slots.find((item) => item.row.word.toLowerCase() === wordQuery.toLowerCase())?.slot ?? null
         );
       }
-      const dueSlots = slots.filter((item) => isDailySlotDue(item.slot));
+      const dueSlots = slots.filter((item) => isDailySlotReleased(item.slot, item.sent));
       const openedDue = dueSlots.filter((item) => item.opened);
       return openedDue.at(-1)?.slot ?? dueSlots[0]?.slot ?? slots[0]?.slot ?? null;
     });

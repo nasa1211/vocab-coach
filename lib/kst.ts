@@ -27,8 +27,27 @@ export function getKSTMinutes(date = new Date()): number {
   return hour * 60 + minute;
 }
 
-export function isSlotDue(time: string, date = new Date()): boolean {
+function slotStartMinutes(time: string): number | null {
   const [hour, minute] = time.split(":").map(Number);
-  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return false;
-  return getKSTMinutes(date) >= hour * 60 + minute;
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  return hour * 60 + minute;
+}
+
+export function isSlotDue(time: string, date = new Date()): boolean {
+  const start = slotStartMinutes(time);
+  if (start == null) return false;
+  return getKSTMinutes(date) >= start;
+}
+
+export function isSlotReleased(time: string, sent: boolean, date = new Date()): boolean {
+  const start = slotStartMinutes(time);
+  if (start == null) return false;
+  const now = getKSTMinutes(date);
+  if (now < start) return false;
+  if (sent) return true;
+  return now >= start + 60;
+}
+
+export function isAwaitingPush(time: string, sent: boolean, date = new Date()): boolean {
+  return isSlotDue(time, date) && !isSlotReleased(time, sent, date);
 }

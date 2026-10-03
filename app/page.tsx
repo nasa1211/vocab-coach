@@ -7,7 +7,7 @@ import BottomNav, { type AppTab } from "@/components/BottomNav";
 import HistoryList, { prefetchHistory, rememberHistoryQuiz, refreshHistory } from "@/components/HistoryList";
 import SettingsPanel from "@/components/SettingsPanel";
 import { clearDayCache, loadDayCache, readDayCache, writeDayCache } from "@/lib/day-cache";
-import { isSlotDue } from "@/lib/kst";
+import { isAwaitingPush, isSlotDue, isSlotReleased } from "@/lib/kst";
 import type { WordCardData } from "@/lib/word-card";
 
 const STUDY_CACHE_KEY = "day_study_v3";
@@ -100,7 +100,7 @@ export default function HomePage() {
     const target = current?.slots.find((item) => item.slot === slot);
     if (!current || !target?.card) return false;
 
-    if (!isSlotDue(target.time)) {
+    if (!isSlotReleased(target.time, Boolean(target.sent))) {
       quizRef.current = null;
       setQuiz(null);
       const next = { ...current, currentSlot: slot, card: target.card };
@@ -159,14 +159,15 @@ export default function HomePage() {
     }
   };
 
-  const loadStudy = useCallback(async (query = "", initial = false) => {
+  const loadStudy = useCallback(async (query = "", initial = false, force = false) => {
     const params = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query);
     const word = params.get("word");
     const cached = readDayCache<StudyResponse>(STUDY_CACHE_KEY);
     const cachedHasWord =
       !word || cached?.slots.some((item) => item.word.toLowerCase() === word.toLowerCase());
     const cachedHasEvening = Boolean(cached && "previousEvening" in cached && Array.isArray(cached.finished));
-    if (cached && cachedHasWord && cachedHasEvening) {
+    const cachedAwaitsPush = Boolean(cached?.slots.some((slot) => isAwaitingPush(slot.time, Boolean(slot.sent))));
+    if (cached && cachedHasWord && cachedHasEvening && !cachedAwaitsPush && !force) {
       applyStudy(cached, query);
       setLoading(false);
       setError(null);
@@ -225,6 +226,21 @@ export default function HomePage() {
   }, [study]);
 
   useEffect(() => {
+    const refresh = () => {
+      const current = studyRef.current;
+      if (!current?.slots.some((slot) => isAwaitingPush(slot.time, Boolean(slot.sent)))) return;
+      if (document.visibilityState === "hidden") return;
+      void loadStudy(window.location.search, false, true);
+    };
+    const timer = window.setInterval(refresh, 20000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [loadStudy]);
+
+  useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 15000);
     const onVisible = () => {
       if (document.visibilityState === "visible") setNow(new Date());
@@ -241,7 +257,7 @@ export default function HomePage() {
     const current = studyRef.current;
     if (!current?.currentSlot) return;
     const target = current.slots.find((item) => item.slot === current.currentSlot);
-    if (!target?.card || !isSlotDue(target.time, now)) return;
+    if (!target?.card || !isSlotReleased(target.time, Boolean(target.sent), now)) return;
     if (needsReview(target.slot, current)) {
       if (quizRef.current?.destinationSlot === target.slot) return;
       const nextQuiz = { aboutSlot: target.slot - 1, destinationSlot: target.slot };
@@ -272,7 +288,7 @@ export default function HomePage() {
   const openSlot = (slot: number) => {
     if (quizRef.current?.source === "yesterday-evening") return;
     const target = studyRef.current?.slots.find((item) => item.slot === slot);
-    if (quizRef.current && target && !isSlotDue(target.time)) return;
+    if (quizRef.current && target && !isSlotReleased(target.time, Boolean(target.sent), now)) return;
     if (quizRef.current && quizRef.current.aboutSlot === slot) return;
     window.history.pushState(null, "", `/?tab=today&slot=${slot}`);
     setActiveTab("today");
@@ -334,10 +350,12 @@ export default function HomePage() {
   };
 
   const currentSlot = study?.slots.find((item) => item.slot === study.currentSlot);
-  const currentDue = currentSlot ? isSlotDue(currentSlot.time, now) : true;
+  const currentDue = currentSlot ? isSlotReleased(currentSlot.time, Boolean(currentSlot.sent), now) : true;
   const currentIndex = study ? study.slots.findIndex((item) => item.slot === study.currentSlot) : -1;
   const nextSlot = study && currentIndex >= 0 ? study.slots[currentIndex + 1] ?? null : null;
-  const nextDue = nextSlot ? isSlotDue(nextSlot.time, now) : false;
+  const nextDue = nextSlot ? isSlotReleased(nextSlot.time, Boolean(nextSlot.sent), now) : false;
+  const closedNote = (label: string, time: string) =>
+    isSlotDue(time, now) ? "알림이 오면 열립니다" : `${label} ${time}에 열립니다`;
   const quizCard = quiz?.source === "yesterday-evening"
     ? study?.previousEvening?.card
     : study?.slots.find((item) => item.slot === quiz?.aboutSlot)?.card ?? study?.card;
@@ -366,7 +384,7 @@ export default function HomePage() {
               <div className="grid grid-cols-3 gap-2">
                 {study.slots.map((slot) => {
                   const selected = slot.slot === study.currentSlot;
-                  const due = isSlotDue(slot.time, now);
+                  const due = isSlotReleased(slot.time, Boolean(slot.sent), now);
                   const conceal = due && quiz?.aboutSlot === slot.slot && !(study.quizzed ?? []).includes(slot.slot);
                   return (
                     <button
@@ -426,7 +444,7 @@ export default function HomePage() {
                     data={currentSlot.card ?? study.card}
                     waitingLabel={
                       currentDue && currentSlot.slot !== 3 && nextSlot && !nextDue
-                        ? `${nextSlot.label} ${nextSlot.time}에 열립니다`
+                        ? closedNote(nextSlot.label, nextSlot.time)
                         : undefined
                     }
                   />
@@ -434,7 +452,7 @@ export default function HomePage() {
                 {currentDue ? null : (
                   <div className="absolute inset-0 flex items-center justify-center px-6">
                     <p className="rounded-2xl bg-white/95 px-4 py-3 text-center text-sm font-semibold text-slate-800 shadow-lg dark:bg-slate-900/95 dark:text-slate-100">
-                      {currentSlot.label} {currentSlot.time}에 열립니다
+                      {closedNote(currentSlot.label, currentSlot.time)}
                     </p>
                   </div>
                 )}
