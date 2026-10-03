@@ -17,9 +17,13 @@ function isIos() {
   );
 }
 
+const iosInstallMessage =
+  "허용 창은 홈 화면 아이콘으로 연 뒤에만 나옵니다. 이미 추가한 아이콘은 지우고, 사파리에서 이 페이지를 다시 홈 화면에 추가한 다음 그 아이콘으로 여세요.";
+
 export default function PushSubscriptionButton() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
@@ -38,29 +42,31 @@ export default function PushSubscriptionButton() {
   }, []);
 
   const handleSubscribe = async () => {
+    setNotice(null);
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+      setNotice(isIos() ? iosInstallMessage : "이 브라우저는 푸시 알림을 지원하지 않습니다.");
+      return;
+    }
+
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      setNotice(
+        isIos() && !isHomeScreenApp()
+          ? iosInstallMessage
+          : "알림 허용이 완료되지 않았습니다. 허용 창이 없었다면 홈 화면 아이콘을 지우고 다시 추가한 뒤, 그 아이콘으로 열어 주세요."
+      );
+      return;
+    }
+
     setLoading(true);
     try {
-      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-        if (isIos() && !isHomeScreenApp()) {
-          alert("아이폰에서는 홈 화면에 추가한 아이콘으로 연 뒤에 알림을 켤 수 있습니다.");
-        } else {
-          alert("이 브라우저는 푸시 알림을 지원하지 않습니다.");
-        }
-        return;
-      }
-
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") {
-        alert("알림 권한이 거부되었습니다.");
-        return;
-      }
 
       const registration = await navigator.serviceWorker.register("/sw.js");
       await navigator.serviceWorker.ready;
 
       const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!publicKey) {
-        alert("NEXT_PUBLIC_VAPID_PUBLIC_KEY 환경 변수가 설정되지 않았습니다.");
+        setNotice("알림 키가 설정되지 않았습니다.");
         return;
       }
       const convertedVapidKey = urlBase64ToUint8Array(publicKey);
@@ -77,7 +83,7 @@ export default function PushSubscriptionButton() {
       });
 
       if (!saveRes.ok) {
-        alert("알림 구독을 저장하지 못했습니다.");
+        setNotice("알림 구독을 저장하지 못했습니다.");
         return;
       }
 
@@ -94,14 +100,12 @@ export default function PushSubscriptionButton() {
         }),
       });
 
-      if (testRes.ok) {
-        alert("하루 세 번 단어 알림을 저장했습니다.");
-      } else {
-        alert("구독은 저장됐지만 확인 알림은 보내지 못했습니다.");
+      if (!testRes.ok) {
+        setNotice("알림은 켜졌습니다. 확인 알림은 도착하지 않았습니다.");
       }
     } catch (error) {
       console.error("푸시 구독 중 오류 발생:", error);
-      alert("구독 중 오류가 발생했습니다.");
+      setNotice("알림을 켜지 못했습니다. 홈 화면 아이콘을 지우고 다시 추가한 뒤 시도해 주세요.");
     } finally {
       setLoading(false);
     }
@@ -121,7 +125,7 @@ export default function PushSubscriptionButton() {
           body: JSON.stringify({ endpoint }),
         });
         if (!response.ok) {
-          alert("알림을 끄지 못했습니다.");
+          setNotice("알림을 끄지 못했습니다.");
           return;
         }
         await subscription.unsubscribe();
@@ -129,14 +133,14 @@ export default function PushSubscriptionButton() {
       setIsSubscribed(false);
     } catch (error) {
       console.error("푸시 구독 해제 중 오류 발생:", error);
-      alert("알림을 끄지 못했습니다.");
+      setNotice("알림을 끄지 못했습니다.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-xs text-slate-500 dark:text-slate-400">아침 8시 · 낮 1시 · 저녁 6시</p>
       <button
         type="button"
@@ -150,6 +154,7 @@ export default function PushSubscriptionButton() {
       >
         {loading ? "설정 중..." : isSubscribed ? "알림 끄기" : "알림 켜기"}
       </button>
+      {notice ? <p className="basis-full text-xs leading-relaxed text-amber-700 dark:text-amber-300">{notice}</p> : null}
     </div>
   );
 }

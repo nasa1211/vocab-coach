@@ -97,7 +97,7 @@ export default function SettingsPanel() {
           <PushSubscriptionButton />
           {homeScreenHint ? (
             <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              아이폰 사파리 탭에서는 알림을 켤 수 없습니다. 공유 버튼에서 홈 화면에 추가한 뒤, 그 아이콘으로 앱을 여세요.
+              허용 창은 홈 화면 아이콘으로 연 앱에서만 나옵니다. 이미 만들어 둔 아이콘은 지우고, 사파리에서 다시 홈 화면에 추가한 뒤 그 아이콘으로 여세요.
             </p>
           ) : null}
         </div>
