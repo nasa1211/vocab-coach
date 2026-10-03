@@ -7,6 +7,13 @@ export function getKSTDateString(date = new Date()): string {
   }).format(date);
 }
 
+export function shiftIsoDate(iso: string, days: number): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  const utc = new Date(Date.UTC(year, month - 1, day));
+  utc.setUTCDate(utc.getUTCDate() + days);
+  return utc.toISOString().slice(0, 10);
+}
+
 export function getKSTMinutes(date = new Date()): number {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Seoul",

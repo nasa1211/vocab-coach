@@ -68,6 +68,16 @@ export async function GET(req: NextRequest) {
       slots,
       card: toWordCard(cardRow),
       quizzed: plan.quizzed,
+      finished: plan.finished,
+      previousEvening: plan.previousEvening
+        ? {
+            date: plan.previousEvening.date,
+            opened: plan.previousEvening.opened,
+            finished: plan.previousEvening.finished,
+            quizzed: plan.previousEvening.quizzed,
+            card: toWordCard(plan.previousEvening.row),
+          }
+        : null,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "학습 카드를 불러오지 못했습니다.";
