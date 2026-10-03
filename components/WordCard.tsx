@@ -10,9 +10,10 @@ export type { QuickQuiz, WordCardData as WordData } from '@/lib/word-card';
 interface WordCardProps {
   data: WordCardData;
   onNext?: () => void;
+  nextLabel?: string;
 }
 
-export default function WordCard({ data, onNext }: WordCardProps) {
+export default function WordCard({ data, onNext, nextLabel }: WordCardProps) {
   const [activeTab, setActiveTab] = useState<'example' | 'nuance'>('example');
   const tabGridClass = data.nuance ? 'grid-cols-2' : 'grid-cols-1';
 
@@ -141,11 +142,17 @@ export default function WordCard({ data, onNext }: WordCardProps) {
         </button>
 
         <button
+          type="button"
           onClick={onNext}
-          className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs py-3 px-4 rounded-xl shadow-lg shadow-blue-600/20 transition-all active:scale-95"
+          disabled={!onNext}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-medium transition-all ${
+            onNext
+              ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-500 active:scale-95"
+              : "cursor-default bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+          }`}
         >
-          <span>완료 & 다음 단어</span>
-          <ChevronRight className="w-4 h-4" />
+          <span>{nextLabel ?? "완료 & 다음 단어"}</span>
+          {onNext ? <ChevronRight className="w-4 h-4" /> : null}
         </button>
       </div>
     </div>

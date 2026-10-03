@@ -6,6 +6,7 @@ import ReviewQuiz from "@/components/ReviewQuiz";
 import BottomNav, { type AppTab } from "@/components/BottomNav";
 import HistoryList from "@/components/HistoryList";
 import SettingsPanel from "@/components/SettingsPanel";
+import { isSlotDue } from "@/lib/kst";
 import type { WordCardData } from "@/lib/word-card";
 
 type StudySlot = {
@@ -56,6 +57,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [quiz, setQuiz] = useState<QuizGate | null>(null);
+  const [now, setNow] = useState(() => new Date());
   const requestId = useRef(0);
   const studyRef = useRef<StudyResponse | null>(null);
   const quizRef = useRef<QuizGate | null>(null);
@@ -77,6 +79,16 @@ export default function HomePage() {
     const current = studyRef.current;
     const target = current?.slots.find((item) => item.slot === slot);
     if (!current || !target?.card) return false;
+
+    if (!isSlotDue(target.time)) {
+      quizRef.current = null;
+      setQuiz(null);
+      const next = { ...current, currentSlot: slot, card: target.card };
+      studyRef.current = next;
+      setStudy(next);
+      setLoading(false);
+      return true;
+    }
 
     if (!new URLSearchParams(window.location.search).get("word") && needsReview(slot, current)) {
       const nextQuiz = { aboutSlot: slot - 1, destinationSlot: slot };
@@ -155,6 +167,41 @@ export default function HomePage() {
     return () => window.removeEventListener("popstate", applyLocation);
   }, [applyLocation]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 15000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") setNow(new Date());
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
+
+  useEffect(() => {
+    const current = studyRef.current;
+    if (!current?.currentSlot) return;
+    const target = current.slots.find((item) => item.slot === current.currentSlot);
+    if (!target?.card || !isSlotDue(target.time, now)) return;
+    if (needsReview(target.slot, current)) {
+      if (quizRef.current?.destinationSlot === target.slot) return;
+      const nextQuiz = { aboutSlot: target.slot - 1, destinationSlot: target.slot };
+      quizRef.current = nextQuiz;
+      setQuiz(nextQuiz);
+      return;
+    }
+    if (quizRef.current || target.opened) return;
+    rememberOpened(target.slot);
+    const next = {
+      ...current,
+      card: target.card,
+      slots: current.slots.map((item) => (item.slot === target.slot ? { ...item, opened: true } : item)),
+    };
+    studyRef.current = next;
+    setStudy(next);
+  }, [now, study]);
+
   const selectTab = (tab: AppTab) => {
     const params = new URLSearchParams();
     params.set("tab", tab);
@@ -165,6 +212,8 @@ export default function HomePage() {
   };
 
   const openSlot = (slot: number) => {
+    const target = studyRef.current?.slots.find((item) => item.slot === slot);
+    if (quizRef.current && target && !isSlotDue(target.time)) return;
     if (quizRef.current && quizRef.current.aboutSlot === slot) return;
     window.history.pushState(null, "", `/?tab=today&slot=${slot}`);
     setActiveTab("today");
@@ -198,8 +247,16 @@ export default function HomePage() {
     if (!study || study.slots.length === 0) return;
     const index = study.slots.findIndex((item) => item.slot === study.currentSlot);
     const next = study.slots[(index + 1) % study.slots.length];
+    if (!isSlotDue(next.time, now)) return;
     openSlot(next.slot);
   };
+
+  const currentSlot = study?.slots.find((item) => item.slot === study.currentSlot);
+  const currentDue = currentSlot ? isSlotDue(currentSlot.time, now) : true;
+  const nextSlot = study && study.slots.length > 0
+    ? study.slots[(Math.max(study.slots.findIndex((item) => item.slot === study.currentSlot), 0) + 1) % study.slots.length]
+    : null;
+  const nextDue = nextSlot ? isSlotDue(nextSlot.time, now) : false;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 ios-safe-content-pb dark:bg-slate-950 dark:text-slate-100">
@@ -219,7 +276,8 @@ export default function HomePage() {
               <div className="grid grid-cols-3 gap-2">
                 {study.slots.map((slot) => {
                   const selected = slot.slot === study.currentSlot;
-                  const conceal = quiz?.aboutSlot === slot.slot && !(study.quizzed ?? []).includes(slot.slot);
+                  const due = isSlotDue(slot.time, now);
+                  const conceal = due && quiz?.aboutSlot === slot.slot && !(study.quizzed ?? []).includes(slot.slot);
                   return (
                     <button
                       key={slot.slot}
@@ -237,11 +295,15 @@ export default function HomePage() {
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">
                         {slot.label} {slot.time}
                       </p>
-                      <p className="truncate text-xs font-semibold text-slate-900 dark:text-white">
+                      <p
+                        className={`truncate text-xs font-semibold text-slate-900 dark:text-white ${
+                          due ? "" : "select-none blur-md"
+                        }`}
+                      >
                         {conceal ? "퀴즈" : slot.word}
                       </p>
                       <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                        {slot.opened ? "학습함" : "아직"}
+                        {due ? (slot.opened ? "학습함" : "아직") : "대기"}
                       </p>
                     </button>
                   );
@@ -266,12 +328,24 @@ export default function HomePage() {
                 onAnswered={revealQuiz}
                 onContinue={finishQuiz}
               />
-            ) : study ? (
-              <WordCard
-                key={(study.slots.find((item) => item.slot === study.currentSlot)?.card ?? study.card).word}
-                data={study.slots.find((item) => item.slot === study.currentSlot)?.card ?? study.card}
-                onNext={openNext}
-              />
+            ) : study && currentSlot ? (
+              <div className="relative">
+                <div className={currentDue ? undefined : "locked-card pointer-events-none select-none"} aria-hidden={currentDue ? undefined : true}>
+                  <WordCard
+                    key={currentSlot.card?.word ?? study.card.word}
+                    data={currentSlot.card ?? study.card}
+                    onNext={currentDue && nextDue ? openNext : undefined}
+                    nextLabel={currentDue && nextSlot && !nextDue ? `${nextSlot.label} ${nextSlot.time}에 열립니다` : undefined}
+                  />
+                </div>
+                {currentDue ? null : (
+                  <div className="absolute inset-0 flex items-center justify-center px-6">
+                    <p className="rounded-2xl bg-white/95 px-4 py-3 text-center text-sm font-semibold text-slate-800 shadow-lg dark:bg-slate-900/95 dark:text-slate-100">
+                      {currentSlot.label} {currentSlot.time}에 열립니다
+                    </p>
+                  </div>
+                )}
+              </div>
             ) : null}
           </div>
         )}

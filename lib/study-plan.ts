@@ -1,3 +1,5 @@
+import { isSlotDue } from "@/lib/kst";
+
 export const STATE_WORD = "__app_state__";
 
 export const DAILY_SLOTS = [
@@ -5,6 +7,11 @@ export const DAILY_SLOTS = [
   { slot: 2, label: "낮", time: "13:00" },
   { slot: 3, label: "저녁", time: "18:00" },
 ] as const;
+
+export function isDailySlotDue(slot: number, date = new Date()) {
+  const meta = DAILY_SLOTS.find((item) => item.slot === slot);
+  return meta ? isSlotDue(meta.time, date) : false;
+}
 
 type OrderedWord = {
   id: string;
