@@ -26,6 +26,14 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "세 장의 영어",
   description: "단어와 예문을 하루 세 번 복습하는 개인 단어장",
+  appleWebApp: {
+    capable: true,
+    title: "세 장의 영어",
+    statusBarStyle: "default",
+  },
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+  },
   icons: {
     icon: [
       { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
