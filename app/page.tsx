@@ -6,7 +6,7 @@ import ReviewQuiz from "@/components/ReviewQuiz";
 import BottomNav, { type AppTab } from "@/components/BottomNav";
 import HistoryList, { prefetchHistory } from "@/components/HistoryList";
 import SettingsPanel from "@/components/SettingsPanel";
-import { loadDayCache, readDayCache, writeDayCache } from "@/lib/day-cache";
+import { clearDayCache, loadDayCache, readDayCache, writeDayCache } from "@/lib/day-cache";
 import { isSlotDue } from "@/lib/kst";
 import type { WordCardData } from "@/lib/word-card";
 
@@ -165,12 +165,14 @@ export default function HomePage() {
     const cached = readDayCache<StudyResponse>(STUDY_CACHE_KEY);
     const cachedHasWord =
       !word || cached?.slots.some((item) => item.word.toLowerCase() === word.toLowerCase());
-    if (cached && cachedHasWord) {
+    const cachedHasEvening = Boolean(cached && "previousEvening" in cached && Array.isArray(cached.finished));
+    if (cached && cachedHasWord && cachedHasEvening) {
       applyStudy(cached, query);
       setLoading(false);
       setError(null);
       return;
     }
+    if (cached) clearDayCache(STUDY_CACHE_KEY);
 
     const id = ++requestId.current;
     if (initial) setLoading(true);
