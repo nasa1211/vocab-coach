@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { markFinished } from "@/lib/app-state";
+import { getTodayPlan, markFinished } from "@/lib/app-state";
 import { getKSTDateString } from "@/lib/kst";
-import { isDailySlotDue } from "@/lib/study-plan";
+import { isDailySlotReleased } from "@/lib/study-plan";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,9 @@ export async function POST(req: NextRequest) {
     if (slotNumber !== 3) {
       return NextResponse.json({ error: "하루 완료는 저녁 카드에서 저장합니다." }, { status: 400 });
     }
-    if (!isDailySlotDue(slotNumber)) {
+    const plan = await getTodayPlan();
+    const item = plan.slots.find((entry) => entry.slot === slotNumber);
+    if (!item || !isDailySlotReleased(slotNumber, item.sent)) {
       return NextResponse.json({ error: "아직 열리지 않은 회차입니다." }, { status: 403 });
     }
 

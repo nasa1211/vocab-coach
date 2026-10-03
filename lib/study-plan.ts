@@ -1,4 +1,4 @@
-import { isSlotDue } from "@/lib/kst";
+import { isSlotReleased } from "@/lib/kst";
 
 export const STATE_WORD = "__app_state__";
 
@@ -8,9 +8,9 @@ export const DAILY_SLOTS = [
   { slot: 3, label: "저녁", time: "18:00" },
 ] as const;
 
-export function isDailySlotDue(slot: number, date = new Date()) {
+export function isDailySlotReleased(slot: number, sent: boolean, date = new Date()) {
   const meta = DAILY_SLOTS.find((item) => item.slot === slot);
-  return meta ? isSlotDue(meta.time, date) : false;
+  return meta ? isSlotReleased(meta.time, sent, date) : false;
 }
 
 type OrderedWord = {
