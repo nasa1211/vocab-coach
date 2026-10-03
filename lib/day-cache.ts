@@ -41,6 +41,17 @@ export function writeDayCache<T>(key: string, data: T) {
   }
 }
 
+export function clearDayCache(key: string) {
+  memory.delete(key);
+  pending.delete(key);
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // The memory copy is already gone.
+  }
+}
+
 export function loadDayCache<T>(key: string, load: () => Promise<T>): Promise<T> {
   const cached = readDayCache<T>(key);
   if (cached !== null) return Promise.resolve(cached);
