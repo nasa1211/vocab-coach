@@ -7,6 +7,7 @@ type Envelope<T> = {
 
 const memory = new Map<string, Envelope<unknown>>();
 const pending = new Map<string, Promise<unknown>>();
+const loads = new Map<string, number>();
 
 function today() {
   return getKSTDateString();
@@ -44,6 +45,7 @@ export function writeDayCache<T>(key: string, data: T) {
 export function clearDayCache(key: string) {
   memory.delete(key);
   pending.delete(key);
+  loads.set(key, (loads.get(key) ?? 0) + 1);
   if (typeof window === "undefined") return;
   try {
     localStorage.removeItem(key);
@@ -59,10 +61,11 @@ export function loadDayCache<T>(key: string, load: () => Promise<T>): Promise<T>
   const existing = pending.get(key);
   if (existing) return existing as Promise<T>;
 
+  const generation = loads.get(key) ?? 0;
   const request = load()
     .then((data) => {
-      writeDayCache(key, data);
       pending.delete(key);
+      if ((loads.get(key) ?? 0) === generation) writeDayCache(key, data);
       return data;
     })
     .catch((error: unknown) => {

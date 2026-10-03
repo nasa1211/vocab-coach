@@ -9,12 +9,19 @@ export type PushSubscriptionRecord = {
   auth: string;
 };
 
+export type QuizResult = {
+  slot: number;
+  selected: number;
+  correct: boolean;
+};
+
 type AppState = {
   subscriptions: PushSubscriptionRecord[];
   opened: Record<string, number[]>;
   sent: Record<string, number[]>;
   quizzed: Record<string, number[]>;
   finished: Record<string, number[]>;
+  quizResults: Record<string, QuizResult[]>;
   dailyWords: Record<string, WordRow[]>;
 };
 
@@ -39,7 +46,7 @@ export type WordRow = {
 };
 
 function emptyState(): AppState {
-  return { subscriptions: [], opened: {}, sent: {}, quizzed: {}, finished: {}, dailyWords: {} };
+  return { subscriptions: [], opened: {}, sent: {}, quizzed: {}, finished: {}, quizResults: {}, dailyWords: {} };
 }
 
 function parseState(nuance: string | null): AppState {
@@ -52,6 +59,7 @@ function parseState(nuance: string | null): AppState {
       sent: parsed.sent && typeof parsed.sent === "object" ? parsed.sent : {},
       quizzed: parsed.quizzed && typeof parsed.quizzed === "object" ? parsed.quizzed : {},
       finished: parsed.finished && typeof parsed.finished === "object" ? parsed.finished : {},
+      quizResults: parsed.quizResults && typeof parsed.quizResults === "object" ? parsed.quizResults : {},
       dailyWords: parsed.dailyWords && typeof parsed.dailyWords === "object" ? parsed.dailyWords : {},
     };
   } catch {
@@ -82,6 +90,7 @@ async function saveState(state: AppState) {
   prune(state.sent);
   prune(state.quizzed);
   prune(state.finished);
+  prune(state.quizResults);
   prune(state.dailyWords);
   const nuance = JSON.stringify(state);
 
@@ -231,8 +240,25 @@ export function markSent(date: string, slot: number) {
   return mark(date, slot, "sent");
 }
 
-export function markQuizzed(date: string, slot: number) {
-  return mark(date, slot, "quizzed");
+export async function markQuizAnswer(date: string, slot: number, selected: number) {
+  const state = await loadState();
+  const row = state.dailyWords[date]?.[slot - 1];
+  const options = row?.quick_quiz?.options;
+  if (!Number.isInteger(selected) || !Array.isArray(options) || selected < 0 || selected >= options.length) {
+    return null;
+  }
+
+  const results = state.quizResults[date] ?? [];
+  const existing = results.find((item) => item.slot === slot);
+  if (existing) return existing;
+
+  const correct = selected === Number(row?.quick_quiz?.answer_index);
+  const marks = new Set(state.quizzed[date] ?? []);
+  marks.add(slot);
+  state.quizzed[date] = [...marks];
+  state.quizResults[date] = [...results, { slot, selected, correct }];
+  await saveState(state);
+  return { slot, selected, correct };
 }
 
 export function markFinished(date: string, slot: number) {
@@ -242,6 +268,21 @@ export function markFinished(date: string, slot: number) {
 export async function listSubscriptions() {
   const state = await loadState();
   return state.subscriptions;
+}
+
+function historyQuiz(state: AppState, date: string, slot: number, row: WordRow) {
+  const result = (state.quizResults[date] ?? []).find((item) => item.slot === slot);
+  const quiz = row.quick_quiz;
+  const options = quiz?.options;
+  if (!result || !quiz || !Array.isArray(options) || options.length === 0) return null;
+  return {
+    question: quiz.question ?? "",
+    options,
+    answerIndex: Number(quiz.answer_index ?? 0),
+    explanation: quiz.explanation ?? "",
+    selected: result.selected,
+    correct: result.correct,
+  };
 }
 
 export async function listPastDays(today = getKSTDateString()) {
@@ -265,6 +306,7 @@ export async function listPastDays(today = getKSTDateString()) {
           meaning: row.meaning ?? "",
           exampleSentence: row.example_sentence ?? "",
           exampleTranslation: row.example_translation ?? "",
+          quiz: historyQuiz(state, date, index + 1, row),
         };
       }),
     }));

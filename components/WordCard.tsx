@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Volume2, Sparkles, RefreshCw, ChevronRight } from 'lucide-react';
+import { Volume2, Sparkles, ChevronRight } from 'lucide-react';
 import type { WordCardData } from '@/lib/word-card';
 import { speakEnglish } from '@/lib/speak-english';
 
@@ -131,25 +131,15 @@ export default function WordCard({ data, onNext, nextLabel, waitingLabel }: Word
       </div>
 
       {/* 5. 하단 액션 버튼 */}
-      <div className="mt-6 flex items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-slate-800/80">
-        <button
-          onClick={() => {
-            setActiveTab('example');
-          }}
-          className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-200"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          다시 보기
-        </button>
-
+      <div className="mt-6 border-t border-slate-200 pt-4 dark:border-slate-800/80">
         {waitingLabel ? (
-          <p className="flex-1 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400">{waitingLabel}</p>
+          <p className="py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400">{waitingLabel}</p>
         ) : (
           <button
             type="button"
             onClick={onNext}
             disabled={!onNext}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-medium transition-all ${
+            className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-medium transition-all ${
               onNext
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-500 active:scale-95"
                 : "cursor-default bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"

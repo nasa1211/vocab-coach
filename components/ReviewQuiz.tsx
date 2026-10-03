@@ -15,7 +15,7 @@ export default function ReviewQuiz({
   card: WordCardData;
   fromLabel: string;
   toLabel: string;
-  onAnswered: () => void;
+  onAnswered: (selected: number) => void;
   onContinue: () => void;
 }) {
   const quiz = card.quick_quiz;
@@ -28,7 +28,7 @@ export default function ReviewQuiz({
   const choose = (index: number) => {
     if (revealed) return;
     setSelected(index);
-    onAnswered();
+    onAnswered(index);
   };
 
   return (
