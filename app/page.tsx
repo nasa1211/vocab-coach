@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import WordCard from "@/components/WordCard";
 import ReviewQuiz from "@/components/ReviewQuiz";
 import BottomNav, { type AppTab } from "@/components/BottomNav";
-import HistoryList, { prefetchHistory } from "@/components/HistoryList";
+import HistoryList, { prefetchHistory, rememberHistoryQuiz, refreshHistory } from "@/components/HistoryList";
 import SettingsPanel from "@/components/SettingsPanel";
 import { clearDayCache, loadDayCache, readDayCache, writeDayCache } from "@/lib/day-cache";
 import { isSlotDue } from "@/lib/kst";
@@ -279,10 +279,30 @@ export default function HomePage() {
     if (!showSlot(slot)) void loadStudy(`?slot=${slot}`);
   };
 
-  const revealQuiz = () => {
+  const revealQuiz = (selected: number) => {
     const gate = quizRef.current;
     const current = studyRef.current;
     if (!gate || !current) return;
+    const saveAnswer = (body: { slot: number; date?: string; selected: number }, card?: WordCardData) => {
+      const quiz = card?.quick_quiz;
+      if (body.date && quiz && quiz.options.length > 0) {
+        rememberHistoryQuiz(body.date, body.slot, {
+          question: quiz.question,
+          options: quiz.options,
+          answerIndex: quiz.answer_index,
+          explanation: quiz.explanation,
+          selected: body.selected,
+          correct: body.selected === quiz.answer_index,
+        });
+      }
+      void fetch("/api/study/quizzed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }).then((response) => {
+        if (response.ok) void refreshHistory();
+      });
+    };
     if (gate.source === "yesterday-evening" && current.previousEvening) {
       if (current.previousEvening.quizzed) return;
       const next = {
@@ -291,11 +311,7 @@ export default function HomePage() {
       };
       studyRef.current = next;
       setStudy(next);
-      void fetch("/api/study/quizzed", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slot: 3, date: current.previousEvening.date }),
-      });
+      saveAnswer({ slot: 3, date: current.previousEvening.date, selected }, current.previousEvening.card);
       return;
     }
     if ((current.quizzed ?? []).includes(gate.aboutSlot)) return;
@@ -303,11 +319,10 @@ export default function HomePage() {
     const next = { ...current, quizzed };
     studyRef.current = next;
     setStudy(next);
-    void fetch("/api/study/quizzed", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slot: gate.aboutSlot }),
-    });
+    saveAnswer(
+      { slot: gate.aboutSlot, date: current.studyDate, selected },
+      current.slots.find((item) => item.slot === gate.aboutSlot)?.card,
+    );
   };
 
   const finishQuiz = () => {
