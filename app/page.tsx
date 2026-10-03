@@ -4,10 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import WordCard from "@/components/WordCard";
 import ReviewQuiz from "@/components/ReviewQuiz";
 import BottomNav, { type AppTab } from "@/components/BottomNav";
-import HistoryList from "@/components/HistoryList";
+import HistoryList, { prefetchHistory } from "@/components/HistoryList";
 import SettingsPanel from "@/components/SettingsPanel";
+import { loadDayCache, readDayCache, writeDayCache } from "@/lib/day-cache";
 import { isSlotDue } from "@/lib/kst";
 import type { WordCardData } from "@/lib/word-card";
+
+const STUDY_CACHE_KEY = "day_study";
 
 type StudySlot = {
   slot: number;
@@ -118,26 +121,46 @@ export default function HomePage() {
   const showSlotRef = useRef(showSlot);
   showSlotRef.current = showSlot;
 
+  const applyStudy = (body: StudyResponse, query = "") => {
+    studyRef.current = body;
+    writeDayCache(STUDY_CACHE_KEY, body);
+    const params = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query);
+    const slot = Number(params.get("slot") || "") || body.currentSlot || body.slots[0]?.slot;
+    if (params.get("word") || !slot || !showSlotRef.current(slot)) {
+      quizRef.current = null;
+      setQuiz(null);
+      setStudy(body);
+    }
+  };
+
   const loadStudy = useCallback(async (query = "", initial = false) => {
+    const params = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query);
+    const word = params.get("word");
+    const cached = readDayCache<StudyResponse>(STUDY_CACHE_KEY);
+    const cachedHasWord =
+      !word || cached?.slots.some((item) => item.word.toLowerCase() === word.toLowerCase());
+    if (cached && cachedHasWord) {
+      applyStudy(cached, query);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     const id = ++requestId.current;
     if (initial) setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/study${query}`, { cache: "no-store" });
-      const body = await response.json();
+      const body = await loadDayCache(STUDY_CACHE_KEY, async () => {
+        const response = await fetch(`/api/study${query}`, { cache: "no-store" });
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || "학습 카드를 불러오지 못했습니다.");
+        }
+        return payload as StudyResponse;
+      });
       if (id !== requestId.current) return;
-      if (!response.ok) {
-        throw new Error(body.error || "학습 카드를 불러오지 못했습니다.");
-      }
-      studyRef.current = body;
-      const params = new URLSearchParams(window.location.search);
-      const slot = Number(params.get("slot") || "") || body.currentSlot || body.slots[0]?.slot;
-      if (params.get("word") || !slot || !showSlotRef.current(slot)) {
-        quizRef.current = null;
-        setQuiz(null);
-        setStudy(body);
-      }
+      applyStudy(body, query);
     } catch (err) {
       if (id !== requestId.current) return;
       setError(err instanceof Error ? err.message : "학습 카드를 불러오지 못했습니다.");
@@ -166,6 +189,12 @@ export default function HomePage() {
     window.addEventListener("popstate", applyLocation);
     return () => window.removeEventListener("popstate", applyLocation);
   }, [applyLocation]);
+
+  useEffect(() => {
+    if (!study) return;
+    writeDayCache(STUDY_CACHE_KEY, study);
+    void prefetchHistory();
+  }, [study]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 15000);
