@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { markOpened } from "@/lib/app-state";
 import { getKSTDateString } from "@/lib/kst";
+import { isDailySlotDue } from "@/lib/study-plan";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,9 @@ export async function POST(req: NextRequest) {
     const slotNumber = Number(slot);
     if (![1, 2, 3].includes(slotNumber)) {
       return NextResponse.json({ error: "slot은 1, 2, 3 중 하나여야 합니다." }, { status: 400 });
+    }
+    if (!isDailySlotDue(slotNumber)) {
+      return NextResponse.json({ error: "아직 열리지 않은 회차입니다." }, { status: 403 });
     }
 
     await markOpened(getKSTDateString(), slotNumber);

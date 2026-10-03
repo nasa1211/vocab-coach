@@ -46,6 +46,10 @@ body {
   animation: fadeIn 0.25s ease-out forwards;
 }
 
+.locked-card {
+  filter: blur(24px);
+}
+
 @media screen and (orientation: landscape) and (max-height: 500px) {
   .mobile-landscape-header {
     position: static !important;
