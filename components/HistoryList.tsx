@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
+import { loadDayCache, readDayCache } from "@/lib/day-cache";
+
+const HISTORY_CACHE_KEY = "day_history";
 
 type HistorySlot = {
   slot: number;
@@ -23,19 +26,30 @@ function formatDate(iso: string) {
   return `${year}년 ${Number(month)}월 ${Number(day)}일`;
 }
 
+async function fetchHistory() {
+  const response = await fetch("/api/history", { cache: "no-store" });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error || "지난 단어를 불러오지 못했습니다.");
+  return body.days as HistoryDay[];
+}
+
+export function prefetchHistory() {
+  return loadDayCache(HISTORY_CACHE_KEY, fetchHistory);
+}
+
 export default function HistoryList() {
   const [days, setDays] = useState<HistoryDay[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  useLayoutEffect(() => {
+    const saved = readDayCache<HistoryDay[]>(HISTORY_CACHE_KEY);
+    if (saved) {
+      setDays(saved);
+      return;
+    }
 
-    fetch("/api/history", { cache: "no-store" })
-      .then(async (response) => {
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.error || "지난 단어를 불러오지 못했습니다.");
-        return body.days as HistoryDay[];
-      })
+    let cancelled = false;
+    prefetchHistory()
       .then((nextDays) => {
         if (!cancelled) setDays(nextDays);
       })
