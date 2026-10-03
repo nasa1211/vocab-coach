@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Volume2, Sparkles, ChevronRight } from 'lucide-react';
+import { Volume2, Sparkles } from 'lucide-react';
 import type { WordCardData } from '@/lib/word-card';
 import { speakEnglish } from '@/lib/speak-english';
 
@@ -9,12 +9,10 @@ export type { QuickQuiz, WordCardData as WordData } from '@/lib/word-card';
 
 interface WordCardProps {
   data: WordCardData;
-  onNext?: () => void;
-  nextLabel?: string;
   waitingLabel?: string;
 }
 
-export default function WordCard({ data, onNext, nextLabel, waitingLabel }: WordCardProps) {
+export default function WordCard({ data, waitingLabel }: WordCardProps) {
   const [activeTab, setActiveTab] = useState<'example' | 'nuance'>('example');
   const tabGridClass = data.nuance ? 'grid-cols-2' : 'grid-cols-1';
 
@@ -131,25 +129,11 @@ export default function WordCard({ data, onNext, nextLabel, waitingLabel }: Word
       </div>
 
       {/* 5. 하단 액션 버튼 */}
-      <div className="mt-6 border-t border-slate-200 pt-4 dark:border-slate-800/80">
-        {waitingLabel ? (
+      {waitingLabel ? (
+        <div className="mt-6 border-t border-slate-200 pt-4 dark:border-slate-800/80">
           <p className="py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400">{waitingLabel}</p>
-        ) : (
-          <button
-            type="button"
-            onClick={onNext}
-            disabled={!onNext}
-            className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-medium transition-all ${
-              onNext
-                ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-500 active:scale-95"
-                : "cursor-default bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-            }`}
-          >
-            <span>{nextLabel ?? "완료 & 다음 단어"}</span>
-            {onNext ? <ChevronRight className="w-4 h-4" /> : null}
-          </button>
-        )}
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -10,7 +10,7 @@ import { clearDayCache, loadDayCache, readDayCache, writeDayCache } from "@/lib/
 import { isSlotDue } from "@/lib/kst";
 import type { WordCardData } from "@/lib/word-card";
 
-const STUDY_CACHE_KEY = "day_study";
+const STUDY_CACHE_KEY = "day_study_v3";
 
 type StudySlot = {
   slot: number;
@@ -333,33 +333,11 @@ export default function HomePage() {
     showSlot(gate.destinationSlot);
   };
 
-  const finishDay = () => {
-    const current = studyRef.current;
-    if (!current || (current.finished ?? []).includes(3)) return;
-    const next = { ...current, finished: [...new Set([...(current.finished ?? []), 3])] };
-    studyRef.current = next;
-    setStudy(next);
-    void fetch("/api/study/finished", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slot: 3 }),
-    });
-  };
-
-  const openNext = () => {
-    if (!study || study.slots.length === 0) return;
-    const index = study.slots.findIndex((item) => item.slot === study.currentSlot);
-    const next = study.slots[index + 1];
-    if (!next || !isSlotDue(next.time, now)) return;
-    openSlot(next.slot);
-  };
-
   const currentSlot = study?.slots.find((item) => item.slot === study.currentSlot);
   const currentDue = currentSlot ? isSlotDue(currentSlot.time, now) : true;
   const currentIndex = study ? study.slots.findIndex((item) => item.slot === study.currentSlot) : -1;
   const nextSlot = study && currentIndex >= 0 ? study.slots[currentIndex + 1] ?? null : null;
   const nextDue = nextSlot ? isSlotDue(nextSlot.time, now) : false;
-  const eveningFinished = (study?.finished ?? []).includes(3);
   const quizCard = quiz?.source === "yesterday-evening"
     ? study?.previousEvening?.card
     : study?.slots.find((item) => item.slot === quiz?.aboutSlot)?.card ?? study?.card;
@@ -409,7 +387,7 @@ export default function HomePage() {
                       </p>
                       <p
                         className={`truncate text-xs font-semibold text-slate-900 dark:text-white ${
-                          due && selected ? "" : "select-none blur-md"
+                          due && slot.opened ? "" : "select-none blur-md"
                         }`}
                       >
                         {conceal ? "퀴즈" : slot.word}
@@ -446,14 +424,6 @@ export default function HomePage() {
                   <WordCard
                     key={currentSlot.card?.word ?? study.card.word}
                     data={currentSlot.card ?? study.card}
-                    onNext={
-                      currentSlot.slot === 3 && currentDue && !eveningFinished
-                        ? finishDay
-                        : currentDue && nextDue
-                          ? openNext
-                          : undefined
-                    }
-                    nextLabel={currentSlot.slot === 3 ? "금일 공부완료" : undefined}
                     waitingLabel={
                       currentDue && currentSlot.slot !== 3 && nextSlot && !nextDue
                         ? `${nextSlot.label} ${nextSlot.time}에 열립니다`

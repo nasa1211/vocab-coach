@@ -18,12 +18,8 @@ export async function GET(req: NextRequest) {
         );
       }
       const dueSlots = slots.filter((item) => isDailySlotDue(item.slot));
-      return (
-        dueSlots.find((item) => !item.opened)?.slot ??
-        dueSlots.at(-1)?.slot ??
-        slots[0]?.slot ??
-        null
-      );
+      const openedDue = dueSlots.filter((item) => item.opened);
+      return openedDue.at(-1)?.slot ?? dueSlots[0]?.slot ?? slots[0]?.slot ?? null;
     });
 
     if (plan.slots.length === 0) {
