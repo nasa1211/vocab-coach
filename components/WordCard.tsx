@@ -17,7 +17,7 @@ export default function WordCard({ data, onNext }: WordCardProps) {
   const tabGridClass = data.nuance ? 'grid-cols-2' : 'grid-cols-1';
 
   return (
-    <div className="mx-auto flex min-h-[520px] w-full max-w-md flex-col justify-between rounded-3xl border border-slate-200 bg-white p-6 text-slate-800 shadow-xl dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100">
+    <div className="mx-auto flex min-h-[520px] w-full max-w-md flex-col justify-between rounded-2xl border border-slate-200 bg-white p-3.5 text-slate-800 shadow-xl dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 sm:rounded-3xl sm:p-6">
       {/* 1. 상단 바 (카테고리 & 발음 듣기) */}
       <div>
         <div className="flex items-center justify-between mb-4">

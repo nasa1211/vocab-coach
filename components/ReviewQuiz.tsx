@@ -32,7 +32,7 @@ export default function ReviewQuiz({
   };
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xl dark:border-slate-800 dark:bg-slate-900 sm:rounded-3xl sm:p-6">
       <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{fromLabel} 단어 확인</p>
       <p className="mt-3 text-sm font-medium leading-relaxed text-slate-800 dark:text-slate-100">{quiz.question}</p>
       <div className="mt-4 space-y-2">
