@@ -11,9 +11,10 @@ interface WordCardProps {
   data: WordCardData;
   onNext?: () => void;
   nextLabel?: string;
+  waitingLabel?: string;
 }
 
-export default function WordCard({ data, onNext, nextLabel }: WordCardProps) {
+export default function WordCard({ data, onNext, nextLabel, waitingLabel }: WordCardProps) {
   const [activeTab, setActiveTab] = useState<'example' | 'nuance'>('example');
   const tabGridClass = data.nuance ? 'grid-cols-2' : 'grid-cols-1';
 
@@ -141,19 +142,23 @@ export default function WordCard({ data, onNext, nextLabel }: WordCardProps) {
           다시 보기
         </button>
 
-        <button
-          type="button"
-          onClick={onNext}
-          disabled={!onNext}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-medium transition-all ${
-            onNext
-              ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-500 active:scale-95"
-              : "cursor-default bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-          }`}
-        >
-          <span>{nextLabel ?? "완료 & 다음 단어"}</span>
-          {onNext ? <ChevronRight className="w-4 h-4" /> : null}
-        </button>
+        {waitingLabel ? (
+          <p className="flex-1 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400">{waitingLabel}</p>
+        ) : (
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={!onNext}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-medium transition-all ${
+              onNext
+                ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-500 active:scale-95"
+                : "cursor-default bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+            }`}
+          >
+            <span>{nextLabel ?? "완료 & 다음 단어"}</span>
+            {onNext ? <ChevronRight className="w-4 h-4" /> : null}
+          </button>
+        )}
       </div>
     </div>
   );

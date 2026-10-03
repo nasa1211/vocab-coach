@@ -22,18 +22,35 @@ type StudySlot = {
   card?: WordCardData;
 };
 
+type PreviousEvening = {
+  date: string;
+  opened: boolean;
+  finished: boolean;
+  quizzed: boolean;
+  card: WordCardData;
+};
+
 type StudyResponse = {
   studyDate: string;
   currentSlot: number | null;
   slots: StudySlot[];
   card: WordCardData;
   quizzed?: number[];
+  finished?: number[];
+  previousEvening?: PreviousEvening | null;
 };
 
 type QuizGate = {
   aboutSlot: number;
   destinationSlot: number;
+  source?: "yesterday-evening";
 };
+
+function pendingEveningQuiz(data: StudyResponse) {
+  const previous = data.previousEvening;
+  if (!previous || previous.quizzed || (!previous.finished && !previous.opened)) return false;
+  return Boolean(previous.card.quick_quiz && previous.card.quick_quiz.options.length > 0);
+}
 
 function needsReview(destination: number, data: StudyResponse) {
   const previous = destination - 1;
@@ -125,6 +142,15 @@ export default function HomePage() {
     studyRef.current = body;
     writeDayCache(STUDY_CACHE_KEY, body);
     const params = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query);
+    if (!params.get("word") && pendingEveningQuiz(body)) {
+      const nextQuiz: QuizGate = { aboutSlot: 3, destinationSlot: 1, source: "yesterday-evening" };
+      quizRef.current = nextQuiz;
+      setQuiz(nextQuiz);
+      const morning = body.slots.find((item) => item.slot === 1);
+      setStudy(morning?.card ? { ...body, currentSlot: 1, card: morning.card } : body);
+      setLoading(false);
+      return;
+    }
     const slot = Number(params.get("slot") || "") || body.currentSlot || body.slots[0]?.slot;
     if (params.get("word") || !slot || !showSlotRef.current(slot)) {
       quizRef.current = null;
@@ -209,6 +235,7 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    if (quizRef.current?.source === "yesterday-evening") return;
     const current = studyRef.current;
     if (!current?.currentSlot) return;
     const target = current.slots.find((item) => item.slot === current.currentSlot);
@@ -241,6 +268,7 @@ export default function HomePage() {
   };
 
   const openSlot = (slot: number) => {
+    if (quizRef.current?.source === "yesterday-evening") return;
     const target = studyRef.current?.slots.find((item) => item.slot === slot);
     if (quizRef.current && target && !isSlotDue(target.time)) return;
     if (quizRef.current && quizRef.current.aboutSlot === slot) return;
@@ -252,7 +280,23 @@ export default function HomePage() {
   const revealQuiz = () => {
     const gate = quizRef.current;
     const current = studyRef.current;
-    if (!gate || !current || (current.quizzed ?? []).includes(gate.aboutSlot)) return;
+    if (!gate || !current) return;
+    if (gate.source === "yesterday-evening" && current.previousEvening) {
+      if (current.previousEvening.quizzed) return;
+      const next = {
+        ...current,
+        previousEvening: { ...current.previousEvening, quizzed: true },
+      };
+      studyRef.current = next;
+      setStudy(next);
+      void fetch("/api/study/quizzed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slot: 3, date: current.previousEvening.date }),
+      });
+      return;
+    }
+    if ((current.quizzed ?? []).includes(gate.aboutSlot)) return;
     const quizzed = [...new Set([...(current.quizzed ?? []), gate.aboutSlot])];
     const next = { ...current, quizzed };
     studyRef.current = next;
@@ -272,20 +316,42 @@ export default function HomePage() {
     showSlot(gate.destinationSlot);
   };
 
+  const finishDay = () => {
+    const current = studyRef.current;
+    if (!current || (current.finished ?? []).includes(3)) return;
+    const next = { ...current, finished: [...new Set([...(current.finished ?? []), 3])] };
+    studyRef.current = next;
+    setStudy(next);
+    void fetch("/api/study/finished", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slot: 3 }),
+    });
+  };
+
   const openNext = () => {
     if (!study || study.slots.length === 0) return;
     const index = study.slots.findIndex((item) => item.slot === study.currentSlot);
-    const next = study.slots[(index + 1) % study.slots.length];
-    if (!isSlotDue(next.time, now)) return;
+    const next = study.slots[index + 1];
+    if (!next || !isSlotDue(next.time, now)) return;
     openSlot(next.slot);
   };
 
   const currentSlot = study?.slots.find((item) => item.slot === study.currentSlot);
   const currentDue = currentSlot ? isSlotDue(currentSlot.time, now) : true;
-  const nextSlot = study && study.slots.length > 0
-    ? study.slots[(Math.max(study.slots.findIndex((item) => item.slot === study.currentSlot), 0) + 1) % study.slots.length]
-    : null;
+  const currentIndex = study ? study.slots.findIndex((item) => item.slot === study.currentSlot) : -1;
+  const nextSlot = study && currentIndex >= 0 ? study.slots[currentIndex + 1] ?? null : null;
   const nextDue = nextSlot ? isSlotDue(nextSlot.time, now) : false;
+  const eveningFinished = (study?.finished ?? []).includes(3);
+  const quizCard = quiz?.source === "yesterday-evening"
+    ? study?.previousEvening?.card
+    : study?.slots.find((item) => item.slot === quiz?.aboutSlot)?.card ?? study?.card;
+  const quizFromLabel = quiz?.source === "yesterday-evening"
+    ? "어제 저녁"
+    : study?.slots.find((item) => item.slot === quiz?.aboutSlot)?.label ?? "이전";
+  const quizToLabel = quiz?.source === "yesterday-evening"
+    ? "아침"
+    : study?.slots.find((item) => item.slot === quiz?.destinationSlot)?.label ?? "다음";
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 ios-safe-content-pb dark:bg-slate-950 dark:text-slate-100">
@@ -348,12 +414,12 @@ export default function HomePage() {
               <div className="w-full rounded-2xl border border-slate-200 bg-white p-3.5 text-sm text-rose-600 dark:border-slate-800 dark:bg-slate-900 dark:text-rose-300 sm:rounded-3xl sm:p-6">
                 {error}
               </div>
-            ) : study && quiz ? (
+            ) : study && quiz && quizCard?.quick_quiz ? (
               <ReviewQuiz
-                key={`${quiz.aboutSlot}-${quiz.destinationSlot}`}
-                card={study.slots.find((item) => item.slot === quiz.aboutSlot)?.card ?? study.card}
-                fromLabel={study.slots.find((item) => item.slot === quiz.aboutSlot)?.label ?? "이전"}
-                toLabel={study.slots.find((item) => item.slot === quiz.destinationSlot)?.label ?? "다음"}
+                key={`${quiz.source ?? "slot"}-${quiz.aboutSlot}-${quiz.destinationSlot}`}
+                card={quizCard}
+                fromLabel={quizFromLabel}
+                toLabel={quizToLabel}
                 onAnswered={revealQuiz}
                 onContinue={finishQuiz}
               />
@@ -363,8 +429,19 @@ export default function HomePage() {
                   <WordCard
                     key={currentSlot.card?.word ?? study.card.word}
                     data={currentSlot.card ?? study.card}
-                    onNext={currentDue && nextDue ? openNext : undefined}
-                    nextLabel={currentDue && nextSlot && !nextDue ? `${nextSlot.label} ${nextSlot.time}에 열립니다` : undefined}
+                    onNext={
+                      currentSlot.slot === 3 && currentDue && !eveningFinished
+                        ? finishDay
+                        : currentDue && nextDue
+                          ? openNext
+                          : undefined
+                    }
+                    nextLabel={currentSlot.slot === 3 ? "금일 공부완료" : undefined}
+                    waitingLabel={
+                      currentDue && currentSlot.slot !== 3 && nextSlot && !nextDue
+                        ? `${nextSlot.label} ${nextSlot.time}에 열립니다`
+                        : undefined
+                    }
                   />
                 </div>
                 {currentDue ? null : (
