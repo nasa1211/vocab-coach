@@ -409,7 +409,7 @@ export default function HomePage() {
                       </p>
                       <p
                         className={`truncate text-xs font-semibold text-slate-900 dark:text-white ${
-                          due ? "" : "select-none blur-md"
+                          due && selected ? "" : "select-none blur-md"
                         }`}
                       >
                         {conceal ? "퀴즈" : slot.word}
