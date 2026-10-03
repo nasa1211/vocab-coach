@@ -203,8 +203,8 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 ios-safe-content-pb dark:bg-slate-950 dark:text-slate-100">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
-        <div className="mx-auto max-w-md px-4 pb-3">
+      <header className="mobile-landscape-header sticky top-0 z-10 border-b border-slate-200 bg-white/90 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+        <div className="mx-auto max-w-md px-4 pb-3 sm:px-6">
           <h1 className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">세 장의 영어</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             단어와 예문을 아침, 낮, 저녁에 한 장씩 복습합니다.
@@ -212,7 +212,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-4 py-5">
+      <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-2 py-4 sm:px-6 sm:py-6">
         {activeTab === "today" && (
           <div className="animate-fadeIn flex flex-col gap-5">
             {study && (
@@ -250,11 +250,11 @@ export default function HomePage() {
             )}
 
             {loading && !study ? (
-              <div className="flex h-[520px] w-full items-center justify-center rounded-3xl border border-slate-200 bg-white/70 dark:border-slate-800 dark:bg-slate-900/50">
+              <div className="flex h-[520px] w-full items-center justify-center rounded-2xl border border-slate-200 bg-white/70 p-3.5 dark:border-slate-800 dark:bg-slate-900/50 sm:rounded-3xl sm:p-6">
                 <p className="animate-pulse text-xs text-slate-400">오늘의 단어와 예문을 불러오는 중입니다.</p>
               </div>
             ) : error ? (
-              <div className="w-full rounded-3xl border border-slate-200 bg-white p-6 text-sm text-rose-600 dark:border-slate-800 dark:bg-slate-900 dark:text-rose-300">
+              <div className="w-full rounded-2xl border border-slate-200 bg-white p-3.5 text-sm text-rose-600 dark:border-slate-800 dark:bg-slate-900 dark:text-rose-300 sm:rounded-3xl sm:p-6">
                 {error}
               </div>
             ) : study && quiz ? (

@@ -46,6 +46,17 @@ body {
   animation: fadeIn 0.25s ease-out forwards;
 }
 
+@media screen and (orientation: landscape) and (max-height: 500px) {
+  .mobile-landscape-header {
+    position: static !important;
+    top: auto !important;
+  }
+
+  nav.ios-safe-bottom {
+    transform: translateY(var(--tw-translate-y, 0)) !important;
+  }
+}
+
 .ios-safe-bottom {
   padding-bottom: 20px;
   padding-bottom: max(16px, constant(safe-area-inset-bottom));
