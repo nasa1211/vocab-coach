@@ -67,6 +67,17 @@ function needsReview(destination: number, data: StudyResponse) {
   return Boolean(prev?.card?.quick_quiz && prev.card.quick_quiz.options.length > 0);
 }
 
+function isStandaloneApp() {
+  const ios = window.navigator as Navigator & { standalone?: boolean };
+  return window.matchMedia("(display-mode: standalone)").matches || ios.standalone === true;
+}
+
+function keepOpenedScreen() {
+  if (!isStandaloneApp() || window.history.length > 2 || window.history.state?.app) return;
+  window.history.replaceState({ app: true, root: true }, "", window.location.href);
+  window.history.pushState({ app: true, root: false }, "", window.location.href);
+}
+
 function readLocation() {
   const params = new URLSearchParams(window.location.search);
   const word = params.get("word");
@@ -221,9 +232,26 @@ export default function HomePage() {
   }, [loadStudy]);
 
   useEffect(() => {
+    keepOpenedScreen();
+    const onPopState = (event: PopStateEvent) => {
+      const state = event.state as { root?: boolean } | null;
+      if (state?.root) {
+        window.history.pushState({ app: true, root: false }, "", window.location.href);
+      }
+      applyLocation();
+    };
+    const onMessage = (event: MessageEvent) => {
+      const url = event.data?.type === "open-url" ? event.data.url : "";
+      if (typeof url !== "string" || !url.startsWith(window.location.origin)) return;
+      window.location.assign(url);
+    };
     applyLocation();
-    window.addEventListener("popstate", applyLocation);
-    return () => window.removeEventListener("popstate", applyLocation);
+    window.addEventListener("popstate", onPopState);
+    navigator.serviceWorker?.addEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      navigator.serviceWorker?.removeEventListener("message", onMessage);
+    };
   }, [applyLocation]);
 
   useEffect(() => {
