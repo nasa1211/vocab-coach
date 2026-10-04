@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findCachedWord, getTodayStudy } from "@/lib/app-state";
+import { parseDeviceId } from "@/lib/device-id";
 import { DAILY_SLOTS, isDailySlotReleased } from "@/lib/study-plan";
 import { toWordCard } from "@/lib/word-card";
 
@@ -7,10 +8,14 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
+    const deviceId = parseDeviceId(req.nextUrl.searchParams.get("device"));
+    if (!deviceId) {
+      return NextResponse.json({ error: "기기를 확인할 수 없습니다." }, { status: 400 });
+    }
     const wordQuery = req.nextUrl.searchParams.get("word");
     const slotParam = req.nextUrl.searchParams.get("slot");
     const slotQuery = slotParam ? Number(slotParam) : null;
-    const plan = await getTodayStudy((slots) => {
+    const plan = await getTodayStudy(deviceId, (slots) => {
       if (slotQuery) return slots.some((item) => item.slot === slotQuery) ? slotQuery : null;
       if (wordQuery) {
         return (

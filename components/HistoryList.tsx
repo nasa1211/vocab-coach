@@ -2,10 +2,11 @@
 
 import { useLayoutEffect, useState } from "react";
 import { Volume2 } from "lucide-react";
+import { getDeviceId } from "@/lib/device-id";
 import { clearDayCache, loadDayCache, readDayCache, writeDayCache } from "@/lib/day-cache";
 import { speakEnglish } from "@/lib/speak-english";
 
-const HISTORY_CACHE_KEY = "day_history";
+const HISTORY_CACHE_KEY = "day_history_v2";
 
 type HistoryQuiz = {
   question: string;
@@ -43,7 +44,7 @@ function cacheHasQuizField(days: HistoryDay[]) {
 }
 
 async function fetchHistory() {
-  const response = await fetch("/api/history", { cache: "no-store" });
+  const response = await fetch(`/api/history?device=${encodeURIComponent(getDeviceId())}`, { cache: "no-store" });
   const body = await response.json();
   if (!response.ok) throw new Error(body.error || "지난 단어를 불러오지 못했습니다.");
   return body.days as HistoryDay[];

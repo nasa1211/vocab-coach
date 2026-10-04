@@ -1,16 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { markQuizAnswer } from "@/lib/app-state";
+import { parseDeviceId } from "@/lib/device-id";
 import { getKSTDateString, shiftIsoDate } from "@/lib/kst";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const { slot, date, selected } = await req.json();
+    const { slot, date, selected, device } = await req.json();
     const slotNumber = Number(slot);
     const selectedIndex = Number(selected);
+    const deviceId = parseDeviceId(device);
     if (![1, 2, 3].includes(slotNumber)) {
       return NextResponse.json({ error: "slot은 1, 2, 3 중 하나여야 합니다." }, { status: 400 });
+    }
+    if (!deviceId) {
+      return NextResponse.json({ error: "기기를 확인할 수 없습니다." }, { status: 400 });
     }
 
     const today = getKSTDateString();
@@ -20,7 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "어제 기록은 저녁 퀴즈만 저장합니다." }, { status: 400 });
     }
 
-    const saved = await markQuizAnswer(studyDate, slotNumber, selectedIndex);
+    const saved = await markQuizAnswer(studyDate, slotNumber, selectedIndex, deviceId);
     if (!saved) {
       return NextResponse.json({ error: "퀴즈 선택을 확인할 수 없습니다." }, { status: 400 });
     }
