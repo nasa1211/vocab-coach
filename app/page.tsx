@@ -6,11 +6,18 @@ import ReviewQuiz from "@/components/ReviewQuiz";
 import BottomNav, { type AppTab } from "@/components/BottomNav";
 import HistoryList, { prefetchHistory, rememberHistoryQuiz, refreshHistory } from "@/components/HistoryList";
 import SettingsPanel from "@/components/SettingsPanel";
+import { getDeviceId } from "@/lib/device-id";
 import { clearDayCache, loadDayCache, readDayCache, writeDayCache } from "@/lib/day-cache";
 import { isAwaitingPush, isSlotDue, isSlotReleased } from "@/lib/kst";
 import type { WordCardData } from "@/lib/word-card";
 
-const STUDY_CACHE_KEY = "day_study_v3";
+const STUDY_CACHE_KEY = "day_study_v4";
+
+function withDevice(query = "") {
+  const params = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query);
+  params.set("device", getDeviceId());
+  return `?${params.toString()}`;
+}
 
 type StudySlot = {
   slot: number;
@@ -91,7 +98,7 @@ export default function HomePage() {
     void fetch("/api/study/opened", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slot }),
+      body: JSON.stringify({ slot, device: getDeviceId() }),
     });
   };
 
@@ -181,7 +188,7 @@ export default function HomePage() {
 
     try {
       const body = await loadDayCache(STUDY_CACHE_KEY, async () => {
-        const response = await fetch(`/api/study${query}`, { cache: "no-store" });
+        const response = await fetch(`/api/study${withDevice(query)}`, { cache: "no-store" });
         const payload = await response.json();
         if (!response.ok) {
           throw new Error(payload.error || "학습 카드를 불러오지 못했습니다.");
@@ -314,7 +321,7 @@ export default function HomePage() {
       void fetch("/api/study/quizzed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, device: getDeviceId() }),
       }).then((response) => {
         if (response.ok) void refreshHistory();
       });
