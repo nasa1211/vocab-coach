@@ -8,7 +8,7 @@ import HistoryList, { prefetchHistory, rememberHistoryQuiz, refreshHistory } fro
 import SettingsPanel from "@/components/SettingsPanel";
 import { getDeviceId } from "@/lib/device-id";
 import { clearDayCache, loadDayCache, readDayCache, writeDayCache } from "@/lib/day-cache";
-import { isAwaitingPush, isSlotDue, isSlotReleased } from "@/lib/kst";
+import { getKSTDateString, isAwaitingPush, isSlotDue, isSlotReleased } from "@/lib/kst";
 import type { WordCardData } from "@/lib/word-card";
 
 const STUDY_CACHE_KEY = "day_study_v4";
@@ -78,6 +78,27 @@ function keepOpenedScreen() {
   window.history.pushState({ app: true, root: false }, "", window.location.href);
 }
 
+type PushEntry = {
+  slot: number | null;
+  word: string | null;
+  clear: boolean;
+};
+
+function readPushEntry(): PushEntry | null {
+  const params = new URLSearchParams(window.location.search);
+  const date = params.get("date");
+  const word = params.get("word");
+  if (!date && !word) return null;
+  const slot = Number(params.get("slot") || "");
+  const today = getKSTDateString();
+  window.history.replaceState(window.history.state, "", "/?tab=today");
+  return {
+    slot: date === today && [1, 2, 3].includes(slot) ? slot : null,
+    word: !date && word ? word : null,
+    clear: true,
+  };
+}
+
 function readLocation() {
   const params = new URLSearchParams(window.location.search);
   const word = params.get("word");
@@ -87,6 +108,14 @@ function readLocation() {
     word || slot ? "today" : tabParam === "history" || tabParam === "settings" ? tabParam : "today";
   const query = word ? `?word=${encodeURIComponent(word)}` : slot ? `?slot=${encodeURIComponent(slot)}` : "";
   return { tab, query, loadStudy: tab === "today" };
+}
+
+async function clearAppNotifications() {
+  if (!("serviceWorker" in navigator)) return;
+  const registration = await navigator.serviceWorker.getRegistration();
+  if (!registration) return;
+  const notes = await registration.getNotifications();
+  for (const note of notes) note.close();
 }
 
 export default function HomePage() {
@@ -99,8 +128,35 @@ export default function HomePage() {
   const requestId = useRef(0);
   const studyRef = useRef<StudyResponse | null>(null);
   const quizRef = useRef<QuizGate | null>(null);
+  const pushRef = useRef<PushEntry | null>(null);
   studyRef.current = study;
   quizRef.current = quiz;
+
+  const capturePushEntry = () => {
+    if (pushRef.current) return;
+    pushRef.current = readPushEntry();
+  };
+
+  const resolvePushSlot = (body: StudyResponse) => {
+    const entry = pushRef.current;
+    if (!entry) return null;
+    if (entry.word) {
+      const match = body.slots.find((slot) => slot.word.toLowerCase() === entry.word?.toLowerCase());
+      entry.slot = match?.slot ?? null;
+      entry.word = null;
+    }
+    if (!entry.slot) return null;
+    const target = body.slots.find((slot) => slot.slot === entry.slot);
+    if (!target || !isSlotReleased(target.time, Boolean(target.sent))) return null;
+    return entry.slot;
+  };
+
+  const clearPushNotifications = () => {
+    const entry = pushRef.current;
+    if (!entry?.clear) return;
+    entry.clear = false;
+    void clearAppNotifications();
+  };
 
   const rememberOpened = (slot: number) => {
     const current = studyRef.current;
@@ -128,7 +184,7 @@ export default function HomePage() {
       return true;
     }
 
-    if (!new URLSearchParams(window.location.search).get("word") && needsReview(slot, current)) {
+    if (needsReview(slot, current)) {
       const nextQuiz = { aboutSlot: slot - 1, destinationSlot: slot };
       quizRef.current = nextQuiz;
       setQuiz(nextQuiz);
@@ -160,21 +216,28 @@ export default function HomePage() {
     studyRef.current = body;
     writeDayCache(STUDY_CACHE_KEY, body);
     const params = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query);
-    if (!params.get("word") && pendingEveningQuiz(body)) {
-      const nextQuiz: QuizGate = { aboutSlot: 3, destinationSlot: 1, source: "yesterday-evening" };
+    const pushed = resolvePushSlot(body);
+    if (pendingEveningQuiz(body)) {
+      const nextQuiz: QuizGate = {
+        aboutSlot: 3,
+        destinationSlot: pushed ?? 1,
+        source: "yesterday-evening",
+      };
       quizRef.current = nextQuiz;
       setQuiz(nextQuiz);
       const morning = body.slots.find((item) => item.slot === 1);
       setStudy(morning?.card ? { ...body, currentSlot: 1, card: morning.card } : body);
       setLoading(false);
+      clearPushNotifications();
       return;
     }
-    const slot = Number(params.get("slot") || "") || body.currentSlot || body.slots[0]?.slot;
-    if (params.get("word") || !slot || !showSlotRef.current(slot)) {
+    const slot = pushed || Number(params.get("slot") || "") || body.currentSlot || body.slots[0]?.slot;
+    if (!slot || !showSlotRef.current(slot)) {
       quizRef.current = null;
       setQuiz(null);
       setStudy(body);
     }
+    clearPushNotifications();
   };
 
   const loadStudy = useCallback(async (query = "", initial = false, force = false) => {
@@ -217,6 +280,7 @@ export default function HomePage() {
   }, []);
 
   const applyLocation = useCallback(() => {
+    capturePushEntry();
     const location = readLocation();
     setActiveTab(location.tab);
     if (!location.loadStudy) {
@@ -232,6 +296,7 @@ export default function HomePage() {
   }, [loadStudy]);
 
   useEffect(() => {
+    capturePushEntry();
     keepOpenedScreen();
     const onPopState = (event: PopStateEvent) => {
       const state = event.state as { root?: boolean } | null;
@@ -397,9 +462,10 @@ export default function HomePage() {
   const quizFromLabel = quiz?.source === "yesterday-evening"
     ? "어제 저녁"
     : study?.slots.find((item) => item.slot === quiz?.aboutSlot)?.label ?? "이전";
-  const quizToLabel = quiz?.source === "yesterday-evening"
-    ? "아침"
-    : study?.slots.find((item) => item.slot === quiz?.destinationSlot)?.label ?? "다음";
+  const quizDestination = study?.slots.find((item) => item.slot === quiz?.destinationSlot);
+  const quizToLabel = quiz?.source === "yesterday-evening" && study && quiz.destinationSlot > 1 && needsReview(quiz.destinationSlot, study)
+    ? study.slots.find((item) => item.slot === quiz.destinationSlot - 1)?.label ?? "다음"
+    : quizDestination?.label ?? (quiz?.source === "yesterday-evening" ? "아침" : "다음");
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 ios-safe-content-pb dark:bg-slate-950 dark:text-slate-100">
