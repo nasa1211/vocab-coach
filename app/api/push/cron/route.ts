@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
       title: item.row.word,
       body: (item.row.example_sentence || item.row.meaning || "").slice(0, 180),
       data: {
-        url: `${req.nextUrl.origin}/?tab=today&word=${encodeURIComponent(item.row.word)}`,
+        url: `${req.nextUrl.origin}/?tab=today&slot=${slot}&date=${plan.date}`,
       },
     });
 
