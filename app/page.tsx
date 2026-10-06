@@ -84,19 +84,65 @@ type PushEntry = {
   clear: boolean;
 };
 
-function readPushEntry(): PushEntry | null {
-  const params = new URLSearchParams(window.location.search);
-  const date = params.get("date");
-  const word = params.get("word");
+const PUSH_INTENT_CACHE = "push-intent-v1";
+const PUSH_INTENT_TTL_MS = 2 * 60 * 1000;
+
+type PushIntentFields = {
+  date?: string | null;
+  word?: string | null;
+  slot?: string | number | null;
+  at?: number;
+};
+
+function pushIntentUrl() {
+  return new URL("/__push_intent__", window.location.origin).href;
+}
+
+function pushEntryFromFields(fields: PushIntentFields): PushEntry | null {
+  const date = fields.date || null;
+  const word = fields.word || null;
   if (!date && !word) return null;
-  const slot = Number(params.get("slot") || "");
+  if (typeof fields.at === "number" && Date.now() - fields.at > PUSH_INTENT_TTL_MS) return null;
+  const slot = Number(fields.slot || "");
   const today = getKSTDateString();
-  window.history.replaceState(window.history.state, "", "/?tab=today");
   return {
     slot: date === today && [1, 2, 3].includes(slot) ? slot : null,
     word: !date && word ? word : null,
     clear: true,
   };
+}
+
+function readPushEntry(): PushEntry | null {
+  const params = new URLSearchParams(window.location.search);
+  const entry = pushEntryFromFields({
+    date: params.get("date"),
+    word: params.get("word"),
+    slot: params.get("slot"),
+  });
+  if (!entry) return null;
+  window.history.replaceState(window.history.state, "", "/?tab=today");
+  return entry;
+}
+
+async function readStoredPushIntent(): Promise<PushEntry | null> {
+  if (!("caches" in window)) return null;
+  const cache = await caches.open(PUSH_INTENT_CACHE);
+  const response = await cache.match(pushIntentUrl());
+  if (!response) return null;
+  try {
+    const entry = pushEntryFromFields((await response.json()) as PushIntentFields);
+    if (!entry) await cache.delete(pushIntentUrl());
+    return entry;
+  } catch {
+    await cache.delete(pushIntentUrl());
+    return null;
+  }
+}
+
+async function forgetStoredPushIntent() {
+  if (!("caches" in window)) return;
+  const cache = await caches.open(PUSH_INTENT_CACHE);
+  await cache.delete(pushIntentUrl());
 }
 
 function readLocation() {
@@ -155,6 +201,7 @@ export default function HomePage() {
     const entry = pushRef.current;
     if (!entry?.clear) return;
     entry.clear = false;
+    void forgetStoredPushIntent();
     void clearAppNotifications();
   };
 
@@ -211,6 +258,8 @@ export default function HomePage() {
   };
   const showSlotRef = useRef(showSlot);
   showSlotRef.current = showSlot;
+  const bootedRef = useRef(false);
+  const acceptPushRef = useRef<(entry: PushEntry) => void>(() => {});
 
   const applyStudy = (body: StudyResponse, query = "") => {
     studyRef.current = body;
@@ -295,9 +344,43 @@ export default function HomePage() {
     void loadStudy(location.query, !studyRef.current);
   }, [loadStudy]);
 
+  acceptPushRef.current = (entry) => {
+    const previous = pushRef.current;
+    if (previous && !previous.clear && previous.slot === entry.slot && previous.word === entry.word) {
+      void forgetStoredPushIntent();
+      return;
+    }
+    pushRef.current = entry;
+    if (!bootedRef.current) return;
+    setActiveTab("today");
+    const current = studyRef.current;
+    if (current) {
+      applyStudy(current);
+      return;
+    }
+    void loadStudy("", true, true);
+  };
+
   useEffect(() => {
-    capturePushEntry();
-    keepOpenedScreen();
+    let cancelled = false;
+    const boot = async () => {
+      capturePushEntry();
+      if (pushRef.current) {
+        void forgetStoredPushIntent();
+      } else {
+        try {
+          const stored = await readStoredPushIntent();
+          if (!cancelled && stored && !pushRef.current) pushRef.current = stored;
+        } catch {
+          // The home screen app can still open today's screen without the stored slot.
+        }
+      }
+      if (cancelled) return;
+      keepOpenedScreen();
+      applyLocation();
+      bootedRef.current = true;
+    };
+    void boot();
     const onPopState = (event: PopStateEvent) => {
       const state = event.state as { root?: boolean } | null;
       if (state?.root) {
@@ -306,14 +389,21 @@ export default function HomePage() {
       applyLocation();
     };
     const onMessage = (event: MessageEvent) => {
-      const url = event.data?.type === "open-url" ? event.data.url : "";
+      const data = event.data as PushIntentFields & { type?: string; url?: string } | null;
+      if (data?.type === "open-push") {
+        const entry = pushEntryFromFields(data);
+        if (entry) acceptPushRef.current(entry);
+        return;
+      }
+      const url = data?.type === "open-url" ? data.url : "";
       if (typeof url !== "string" || !url.startsWith(window.location.origin)) return;
       window.location.assign(url);
     };
-    applyLocation();
     window.addEventListener("popstate", onPopState);
     navigator.serviceWorker?.addEventListener("message", onMessage);
     return () => {
+      cancelled = true;
+      bootedRef.current = false;
       window.removeEventListener("popstate", onPopState);
       navigator.serviceWorker?.removeEventListener("message", onMessage);
     };
