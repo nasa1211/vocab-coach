@@ -89,15 +89,10 @@ export default function PushSubscriptionButton() {
 
       setIsSubscribed(true);
 
-      const testRes = await fetch("/api/push/send", {
+      const testRes = await fetch("/api/push/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subscription,
-          title: "학습 알림이 켜졌습니다",
-          body: "아침 8시, 낮 1시, 저녁 6시에 단어와 예문이 도착합니다.",
-          url: "/?tab=today",
-        }),
+        body: JSON.stringify({ subscription }),
       });
 
       if (!testRes.ok) {
