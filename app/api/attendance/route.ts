@@ -121,10 +121,11 @@ export async function POST(req: NextRequest) {
       current_streak: newStreak,
       longest_streak: newLongest,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : '서버 내부 오류가 발생했습니다.';
     console.error('❌ /api/attendance 서버 에러:', error);
     return NextResponse.json(
-      { error: '서버 내부 오류가 발생했습니다.', details: error?.message },
+      { error: '서버 내부 오류가 발생했습니다.', details: message },
       { status: 500 }
     );
   }

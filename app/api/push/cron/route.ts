@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import webpush from "web-push";
 import { getTodayPlan, listSubscriptions, markSent, replaceSubscriptions } from "@/lib/app-state";
+import { getVapidConfig } from "@/lib/env-config";
 
 export const dynamic = "force-dynamic";
 
-const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
-const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "";
+let vapidInitialized = false;
 
-if (vapidPublicKey && vapidPrivateKey) {
-  webpush.setVapidDetails("mailto:admin@example.com", vapidPublicKey, vapidPrivateKey);
+function ensureVapidInit() {
+  if (vapidInitialized) return;
+  const config = getVapidConfig();
+  webpush.setVapidDetails(`mailto:${config.email}`, config.publicKey, config.privateKey);
+  vapidInitialized = true;
 }
 
 export async function GET(req: NextRequest) {
@@ -23,9 +26,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "slot은 1, 2, 3 중 하나여야 합니다." }, { status: 400 });
     }
 
-    if (!vapidPublicKey || !vapidPrivateKey) {
-      return NextResponse.json({ error: "VAPID 키가 없습니다." }, { status: 500 });
-    }
+    ensureVapidInit();
 
     const plan = await getTodayPlan();
     const item = plan.slots.find((entry) => entry.slot === slot);
@@ -88,7 +89,7 @@ export async function GET(req: NextRequest) {
       sent,
       failed,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "푸시 발송에 실패했습니다.";
     return NextResponse.json({ error: message }, { status: 500 });
   }

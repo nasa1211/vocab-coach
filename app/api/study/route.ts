@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "오늘 회차를 찾을 수 없습니다." }, { status: 404 });
     }
 
-    let current = plan.currentSlot
+    const current: typeof plan.slots[0] | null = plan.currentSlot
       ? plan.slots.find((item) => item.slot === plan.currentSlot) ?? null
       : null;
     let extraRow = null;
@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
           }
         : null,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "학습 카드를 불러오지 못했습니다.";
     return NextResponse.json({ error: message }, { status: 500 });
   }

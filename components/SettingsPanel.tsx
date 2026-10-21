@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import PushSubscriptionButton from "@/components/PushSubscriptionButton";
 
@@ -9,14 +9,15 @@ const FONT_SCALE_KEY = "font_scale";
 export default function SettingsPanel() {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [fontScale, setFontScale] = useState("1");
+  const [fontScale, setFontScale] = useState(() => {
+    if (typeof window === "undefined") return "1";
+    return localStorage.getItem(FONT_SCALE_KEY) || "1";
+  });
   const [homeScreenHint, setHomeScreenHint] = useState(false);
 
-  useEffect(() => {
-    const saved = localStorage.getItem(FONT_SCALE_KEY) || "1";
-    setFontScale(saved);
-    document.documentElement.style.setProperty("--font-scale", saved);
-    setMounted(true);
+  useLayoutEffect(() => {
+    // Apply saved font scale on mount
+    document.documentElement.style.setProperty("--font-scale", fontScale);
 
     const ios =
       /iPad|iPhone|iPod/.test(navigator.userAgent) ||
@@ -24,7 +25,11 @@ export default function SettingsPanel() {
     const standalone =
       window.matchMedia("(display-mode: standalone)").matches ||
       ("standalone" in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHomeScreenHint(ios && !standalone);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const isDark = mounted && resolvedTheme === "dark";

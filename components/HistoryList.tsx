@@ -119,14 +119,16 @@ function QuizResult({ quiz }: { quiz: HistoryQuiz }) {
 }
 
 export default function HistoryList() {
-  const [days, setDays] = useState<HistoryDay[] | null>(null);
+  const [days, setDays] = useState<HistoryDay[] | null>(() => {
+    const saved = readDayCache<HistoryDay[]>(HISTORY_CACHE_KEY);
+    return saved && cacheHasQuizField(saved) ? saved : null;
+  });
   const [error, setError] = useState<string | null>(null);
 
   useLayoutEffect(() => {
     const saved = readDayCache<HistoryDay[]>(HISTORY_CACHE_KEY);
     if (saved && cacheHasQuizField(saved)) {
-      setDays(saved);
-      return;
+      return; // Already loaded in initial state
     }
 
     let cancelled = false;

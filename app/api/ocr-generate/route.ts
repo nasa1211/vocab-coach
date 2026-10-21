@@ -1,19 +1,37 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { MODEL_NAME } from '@/lib/gemini';
+import { getDeviceIdFromHeader } from '@/lib/api-auth';
+import { rateLimit, AI_RATE_LIMIT } from '@/lib/rate-limit';
+import { getGeminiApiKey } from '@/lib/env-config';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    // Require device ID
+    const deviceId = getDeviceIdFromHeader(req);
+    if (!deviceId) {
+      return NextResponse.json(
+        { error: '유효한 기기 ID 헤더(X-Device-Id)가 필요합니다.' },
+        { status: 401 }
+      );
+    }
+
+    // Rate limit per device
+    const { success, remaining } = rateLimit(deviceId, AI_RATE_LIMIT);
+    if (!success) {
+      return NextResponse.json(
+        { error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
+        { status: 429, headers: { 'X-RateLimit-Remaining': '0' } }
+      );
+    }
+
     const { imageBase64 } = await req.json();
 
     if (!imageBase64) {
       return NextResponse.json({ error: '이미지 데이터가 없습니다.' }, { status: 400 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다.' }, { status: 500 });
-    }
+    const apiKey = getGeminiApiKey();
 
     // 1. Base64 및 MIME Type 동적 분리
     let mimeType = 'image/jpeg';
@@ -75,12 +93,16 @@ Respond STRICTLY in JSON format matching this schema:
     }
 
     const wordData = JSON.parse(textResult);
-    return NextResponse.json(wordData, { status: 200 });
+    return NextResponse.json(wordData, {
+      status: 200,
+      headers: { 'X-RateLimit-Remaining': remaining.toString() },
+    });
 
-  } catch (error: any) {
-    console.error('❌ [OCR API Exception]:', error.message || error);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : '이미지에서 단어를 추출하지 못했습니다.';
+    console.error('❌ [OCR API Exception]:', message);
     return NextResponse.json(
-      { error: error.message || '이미지에서 단어를 추출하지 못했습니다.' },
+      { error: message },
       { status: 500 }
     );
   }
