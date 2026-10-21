@@ -39,12 +39,12 @@ describe('env-config', () => {
       expect(() => getSupabaseConfig()).toThrow(/Supabase configuration is incomplete/);
     });
 
-    it('should throw when service key is missing', () => {
+    it('should fall back to anon key when service key is missing', () => {
       process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
       delete process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-      expect(() => getSupabaseConfig()).toThrow(/SUPABASE_SERVICE_ROLE_KEY is required/);
+      expect(getSupabaseConfig().serviceKey).toBe('anon-key');
     });
   });
 
