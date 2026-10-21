@@ -36,13 +36,8 @@ export function getSupabaseConfig(): SupabaseConfig {
     );
   }
 
-  if (!serviceKey) {
-    throw new Error(
-      "SUPABASE_SERVICE_ROLE_KEY is required for server-side operations."
-    );
-  }
-
-  supabaseConfig = { url, anonKey, serviceKey };
+  // SUPABASE_SERVICE_ROLE_KEY is optional: fall back to the anon key, as before.
+  supabaseConfig = { url, anonKey, serviceKey: serviceKey || anonKey };
   return supabaseConfig;
 }
 
