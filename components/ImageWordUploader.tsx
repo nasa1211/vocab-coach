@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Camera, Upload, Sparkles, Loader2 } from 'lucide-react';
+import { Camera, Upload, Loader2 } from 'lucide-react';
 import { WordData } from '@/components/WordCard';
+import { getDeviceId } from '@/lib/device-id';
 
 interface ImageWordUploaderProps {
   onWordGenerated: (wordData: WordData) => void;
@@ -28,7 +29,10 @@ export default function ImageWordUploader({ onWordGenerated }: ImageWordUploader
         // 2. OCR API 호출
         const res = await fetch('/api/ocr-generate', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Device-Id': getDeviceId(),
+          },
           body: JSON.stringify({ imageBase64: base64Image }),
         });
 

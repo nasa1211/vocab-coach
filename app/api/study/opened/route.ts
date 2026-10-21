@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const { slot, device } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { slot, device } = body;
     const slotNumber = Number(slot);
     const deviceId = parseDeviceId(device);
     if (![1, 2, 3].includes(slotNumber)) {
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
 
     await markOpened(getKSTDateString(), slotNumber, deviceId);
     return NextResponse.json({ success: true, slot: slotNumber });
-  } catch (error) {
+  } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "학습 표시를 저장하지 못했습니다.";
     return NextResponse.json({ error: message }, { status: 500 });
   }

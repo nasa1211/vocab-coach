@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const { slot, date, selected, device } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { slot, date, selected, device } = body;
     const slotNumber = Number(slot);
     const selectedIndex = Number(selected);
     const deviceId = parseDeviceId(device);
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "퀴즈 선택을 확인할 수 없습니다." }, { status: 400 });
     }
     return NextResponse.json({ success: true, slot: slotNumber, date: studyDate, correct: saved.correct });
-  } catch (error) {
+  } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "퀴즈 기록을 저장하지 못했습니다.";
     return NextResponse.json({ error: message }, { status: 500 });
   }

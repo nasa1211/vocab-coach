@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
       success: true,
       message: "푸시 구독이 저장되었습니다.",
     });
-  } catch (error) {
+  } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "구독 저장에 실패했습니다.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -32,7 +32,7 @@ export async function DELETE(req: NextRequest) {
 
     await removeSubscription(endpoint);
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "구독 해제에 실패했습니다.";
     return NextResponse.json({ error: message }, { status: 500 });
   }

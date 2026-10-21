@@ -175,8 +175,15 @@ export default function HomePage() {
   const studyRef = useRef<StudyResponse | null>(null);
   const quizRef = useRef<QuizGate | null>(null);
   const pushRef = useRef<PushEntry | null>(null);
-  studyRef.current = study;
-  quizRef.current = quiz;
+
+  // Update refs when state changes
+  useEffect(() => {
+    studyRef.current = study;
+  }, [study]);
+
+  useEffect(() => {
+    quizRef.current = quiz;
+  }, [quiz]);
 
   const capturePushEntry = () => {
     if (pushRef.current) return;
@@ -256,8 +263,13 @@ export default function HomePage() {
     setLoading(false);
     return true;
   };
+
+  // Update showSlotRef when showSlot changes
   const showSlotRef = useRef(showSlot);
-  showSlotRef.current = showSlot;
+  useEffect(() => {
+    showSlotRef.current = showSlot;
+  }, [showSlot]);
+
   const bootedRef = useRef(false);
   const acceptPushRef = useRef<(entry: PushEntry) => void>(() => {});
 
@@ -326,7 +338,7 @@ export default function HomePage() {
     } finally {
       if (id === requestId.current) setLoading(false);
     }
-  }, []);
+  }, [applyStudy]);
 
   const applyLocation = useCallback(() => {
     capturePushEntry();
@@ -344,22 +356,25 @@ export default function HomePage() {
     void loadStudy(location.query, !studyRef.current);
   }, [loadStudy]);
 
-  acceptPushRef.current = (entry) => {
-    const previous = pushRef.current;
-    if (previous && !previous.clear && previous.slot === entry.slot && previous.word === entry.word) {
-      void forgetStoredPushIntent();
-      return;
-    }
-    pushRef.current = entry;
-    if (!bootedRef.current) return;
-    setActiveTab("today");
-    const current = studyRef.current;
-    if (current) {
-      applyStudy(current);
-      return;
-    }
-    void loadStudy("", true, true);
-  };
+  // Update acceptPushRef callback
+  useEffect(() => {
+    acceptPushRef.current = (entry) => {
+      const previous = pushRef.current;
+      if (previous && !previous.clear && previous.slot === entry.slot && previous.word === entry.word) {
+        void forgetStoredPushIntent();
+        return;
+      }
+      pushRef.current = entry;
+      if (!bootedRef.current) return;
+      setActiveTab("today");
+      const current = studyRef.current;
+      if (current) {
+        applyStudy(current);
+        return;
+      }
+      void loadStudy("", true, true);
+    };
+  }, [loadStudy, applyStudy]);
 
   useEffect(() => {
     let cancelled = false;

@@ -1,24 +1,30 @@
 // app/api/push/send/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import webpush from "web-push";
+import { verifyServerSecret } from "@/lib/api-auth";
+import { getVapidConfig } from "@/lib/env-config";
 
-// VAPID 키 설정 (환경변수 관리)
-const vapidDetails = {
-  publicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "",
-  privateKey: process.env.VAPID_PRIVATE_KEY || "",
-  subject: "mailto:admin@example.com",
-};
+let vapidInitialized = false;
 
-if (vapidDetails.publicKey && vapidDetails.privateKey) {
-  webpush.setVapidDetails(
-    vapidDetails.subject,
-    vapidDetails.publicKey,
-    vapidDetails.privateKey
-  );
+function ensureVapidInit() {
+  if (vapidInitialized) return;
+  const config = getVapidConfig();
+  webpush.setVapidDetails(`mailto:${config.email}`, config.publicKey, config.privateKey);
+  vapidInitialized = true;
 }
 
 export async function POST(req: NextRequest) {
   try {
+    // Require server secret authentication
+    if (!verifyServerSecret(req)) {
+      return NextResponse.json(
+        { error: "인증 실패. 서버 시크릿이 필요합니다." },
+        { status: 401 }
+      );
+    }
+
+    ensureVapidInit();
+
     const { subscription, title, body, url } = await req.json();
 
     if (!subscription) {
@@ -40,9 +46,10 @@ export async function POST(req: NextRequest) {
     await webpush.sendNotification(subscription, payload);
 
     return NextResponse.json({ success: true, message: "푸시 알림 전송 성공" });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "푸시 발송 실패";
     return NextResponse.json(
-      { error: "푸시 발송 실패", details: error?.message },
+      { error: "푸시 발송 실패", details: message },
       { status: 500 }
     );
   }

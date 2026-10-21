@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     }
     const days = await listPastDays(deviceId);
     return NextResponse.json({ days });
-  } catch (error) {
+  } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "지난 단어를 불러오지 못했습니다.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
