@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import WordCard from "@/components/WordCard";
 import ReviewQuiz from "@/components/ReviewQuiz";
 import BottomNav, { type AppTab } from "@/components/BottomNav";
@@ -8,6 +8,7 @@ import HistoryList, { prefetchHistory, rememberHistoryQuiz, refreshHistory } fro
 import SettingsPanel from "@/components/SettingsPanel";
 import { getDeviceId } from "@/lib/device-id";
 import { clearDayCache, loadDayCache, readDayCache, writeDayCache } from "@/lib/day-cache";
+import { isDuplicatePush, sameQuiz, type AcceptedPush } from "@/lib/push-entry";
 import { getKSTDateString, isAwaitingPush, isSlotDue, isSlotReleased } from "@/lib/kst";
 import type { WordCardData } from "@/lib/word-card";
 
@@ -175,6 +176,7 @@ export default function HomePage() {
   const studyRef = useRef<StudyResponse | null>(null);
   const quizRef = useRef<QuizGate | null>(null);
   const pushRef = useRef<PushEntry | null>(null);
+  const lastPushRef = useRef<AcceptedPush | null>(null);
 
   // Update refs when state changes
   useEffect(() => {
@@ -188,6 +190,12 @@ export default function HomePage() {
   const capturePushEntry = () => {
     if (pushRef.current) return;
     pushRef.current = readPushEntry();
+  };
+
+  const commitQuiz = (next: QuizGate | null) => {
+    if (sameQuiz(quizRef.current, next)) return;
+    quizRef.current = next;
+    setQuiz(next);
   };
 
   const resolvePushSlot = (body: StudyResponse) => {
@@ -223,35 +231,39 @@ export default function HomePage() {
     });
   };
 
-  const showSlot = (slot: number) => {
+  const showSlot = (slot: number, force = false) => {
     const current = studyRef.current;
     const target = current?.slots.find((item) => item.slot === slot);
     if (!current || !target?.card) return false;
 
     if (!isSlotReleased(target.time, Boolean(target.sent))) {
-      quizRef.current = null;
-      setQuiz(null);
-      const next = { ...current, currentSlot: slot, card: target.card };
-      studyRef.current = next;
-      setStudy(next);
+      commitQuiz(null);
+      if (force || current.currentSlot !== slot || current.card !== target.card) {
+        const next = { ...current, currentSlot: slot, card: target.card };
+        studyRef.current = next;
+        setStudy(next);
+      }
       setLoading(false);
       return true;
     }
 
     if (needsReview(slot, current)) {
-      const nextQuiz = { aboutSlot: slot - 1, destinationSlot: slot };
-      quizRef.current = nextQuiz;
-      setQuiz(nextQuiz);
-      const next = { ...current, currentSlot: slot };
-      studyRef.current = next;
-      setStudy(next);
+      commitQuiz({ aboutSlot: slot - 1, destinationSlot: slot });
+      if (force || current.currentSlot !== slot) {
+        const next = { ...current, currentSlot: slot };
+        studyRef.current = next;
+        setStudy(next);
+      }
       setLoading(false);
       return true;
     }
 
-    quizRef.current = null;
-    setQuiz(null);
+    commitQuiz(null);
     rememberOpened(slot);
+    if (!force && current.currentSlot === slot && current.card === target.card && target.opened) {
+      setLoading(false);
+      return true;
+    }
     const next = {
       ...current,
       currentSlot: slot,
@@ -264,16 +276,14 @@ export default function HomePage() {
     return true;
   };
 
-  // Update showSlotRef when showSlot changes
+  // Latest-ref pattern: effects and callbacks stay stable while reading current implementations
   const showSlotRef = useRef(showSlot);
-  useEffect(() => {
-    showSlotRef.current = showSlot;
-  }, [showSlot]);
 
   const bootedRef = useRef(false);
   const acceptPushRef = useRef<(entry: PushEntry) => void>(() => {});
 
   const applyStudy = (body: StudyResponse, query = "") => {
+    const prev = studyRef.current;
     studyRef.current = body;
     writeDayCache(STUDY_CACHE_KEY, body);
     const params = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query);
@@ -284,22 +294,29 @@ export default function HomePage() {
         destinationSlot: pushed ?? 1,
         source: "yesterday-evening",
       };
-      quizRef.current = nextQuiz;
-      setQuiz(nextQuiz);
+      commitQuiz(nextQuiz);
       const morning = body.slots.find((item) => item.slot === 1);
-      setStudy(morning?.card ? { ...body, currentSlot: 1, card: morning.card } : body);
+      if (!(morning?.card && prev?.currentSlot === 1 && prev.card === morning.card && prev.slots === body.slots)) {
+        setStudy(morning?.card ? { ...body, currentSlot: 1, card: morning.card } : body);
+      }
       setLoading(false);
       clearPushNotifications();
       return;
     }
     const slot = pushed || Number(params.get("slot") || "") || body.currentSlot || body.slots[0]?.slot;
-    if (!slot || !showSlotRef.current(slot)) {
-      quizRef.current = null;
-      setQuiz(null);
-      setStudy(body);
+    if (!slot || !showSlotRef.current(slot, prev !== body)) {
+      commitQuiz(null);
+      if (prev !== body) setStudy(body);
     }
     clearPushNotifications();
   };
+
+  const applyStudyRef = useRef(applyStudy);
+  // No deps on purpose: only refreshes refs after each render, never sets state.
+  useLayoutEffect(() => {
+    showSlotRef.current = showSlot;
+    applyStudyRef.current = applyStudy;
+  });
 
   const loadStudy = useCallback(async (query = "", initial = false, force = false) => {
     const params = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query);
@@ -310,7 +327,7 @@ export default function HomePage() {
     const cachedHasEvening = Boolean(cached && "previousEvening" in cached && Array.isArray(cached.finished));
     const cachedAwaitsPush = Boolean(cached?.slots.some((slot) => isAwaitingPush(slot.time, Boolean(slot.sent))));
     if (cached && cachedHasWord && cachedHasEvening && !cachedAwaitsPush && !force) {
-      applyStudy(cached, query);
+      applyStudyRef.current(cached, query);
       setLoading(false);
       setError(null);
       return;
@@ -331,17 +348,17 @@ export default function HomePage() {
         return payload as StudyResponse;
       });
       if (id !== requestId.current) return;
-      applyStudy(body, query);
+      applyStudyRef.current(body, query);
     } catch (err) {
       if (id !== requestId.current) return;
       setError(err instanceof Error ? err.message : "학습 카드를 불러오지 못했습니다.");
     } finally {
       if (id === requestId.current) setLoading(false);
     }
-  }, [applyStudy]);
+  }, []);
 
   const applyLocation = useCallback(() => {
-    capturePushEntry();
+    if (!pushRef.current) pushRef.current = readPushEntry();
     const location = readLocation();
     setActiveTab(location.tab);
     if (!location.loadStudy) {
@@ -359,6 +376,12 @@ export default function HomePage() {
   // Update acceptPushRef callback
   useEffect(() => {
     acceptPushRef.current = (entry) => {
+      const at = Date.now();
+      if (isDuplicatePush(lastPushRef.current, entry, at)) {
+        void forgetStoredPushIntent();
+        return;
+      }
+      lastPushRef.current = { slot: entry.slot, word: entry.word, at };
       const previous = pushRef.current;
       if (previous && !previous.clear && previous.slot === entry.slot && previous.word === entry.word) {
         void forgetStoredPushIntent();
@@ -369,12 +392,12 @@ export default function HomePage() {
       setActiveTab("today");
       const current = studyRef.current;
       if (current) {
-        applyStudy(current);
+        applyStudyRef.current(current);
         return;
       }
       void loadStudy("", true, true);
     };
-  }, [loadStudy, applyStudy]);
+  }, [loadStudy]);
 
   useEffect(() => {
     let cancelled = false;

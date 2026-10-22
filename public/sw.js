@@ -144,7 +144,7 @@ self.addEventListener('notificationclick', function (event) {
     if (!current) current = await self.clients.openWindow(home);
     if (!current) return undefined;
     await focusHomeScreen(current, fields);
-    for (let attempt = 0; attempt < 4; attempt += 1) {
+    for (let attempt = 0; attempt < 1; attempt += 1) {
       await delay(200);
       await focusHomeScreen(current, fields);
     }
