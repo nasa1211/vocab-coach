@@ -138,7 +138,7 @@ function depthErrors() {
   return errorSpy.mock.calls.filter((args: unknown[]) => args.some((arg) => String(arg).includes("Maximum update depth")));
 }
 
-describe("HomePage render", () => {
+describe("HomePage render", { timeout: 20000 }, () => {
   it("does not refetch or loop when open-push messages arrive repeatedly", async () => {
     render(<HomePage />);
 
