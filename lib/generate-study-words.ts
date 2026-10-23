@@ -53,46 +53,40 @@ function asWordRow(raw: GeneratedWord, index: number): WordRow {
   };
 }
 
-export async function generateStudyWords(options: {
-  count?: number;
-  category?: string;
-  word?: string;
-  exclude?: string[];
-} = {}): Promise<WordRow[]> {
-  const count = options.count ?? 3;
-  const category = options.category || "English";
-  const requestedWord = options.word ? normalizeWord(options.word) : "";
-  const blocked = new Set((options.exclude ?? []).map(normalizeWord).filter(Boolean));
-  if (requestedWord) blocked.delete(requestedWord);
-  const apiKey = process.env.GEMINI_API_KEY;
+export function buildStudyWordsPrompt({
+  need,
+  category,
+  requestedWord,
+  excludeList = [],
+}: {
+  need: number;
+  category: string;
+  requestedWord?: string;
+  excludeList?: string[];
+}): string {
+  const target = requestedWord
+    ? `요청된 단어("${requestedWord}")의 뜻과 예문을 작성하세요. 아래 예문/퀴즈 규칙은 이 단어에도 동일하게 적용하세요.`
+    : `성인 학습용 실용 영어 단어 또는 숙어 ${need}개를 서로 겹치지 않게 고르세요.`;
+  const excludeInstruction =
+    excludeList.length > 0 ? `\n이미 학습한 단어는 제외하세요: ${excludeList.join(", ")}` : "";
 
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY가 없습니다.");
-  }
-
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({
-    model: MODEL_NAME,
-    generationConfig: {
-      temperature: 0.8,
-      responseMimeType: "application/json",
-    },
-  });
-
-  const accepted: GeneratedWord[] = [];
-
-  for (let attempt = 0; attempt < 4 && accepted.length < count; attempt += 1) {
-    const need = count - accepted.length;
-    const excludeList = [...blocked].slice(-80);
-    const target = requestedWord
-      ? `요청된 단어("${options.word}")의 뜻과 예문을 작성하세요.`
-      : `성인 학습용 실용 영어 단어 또는 숙어 ${need}개를 서로 겹치지 않게 고르세요.`;
-    const excludeInstruction =
-      excludeList.length > 0 ? `\n이미 학습한 단어는 제외하세요: ${excludeList.join(", ")}` : "";
-
-    const prompt = `
-당신은 성인을 위한 영어 단어 멘토입니다.
+  return `
+당신은 한국인 성인 직장인을 위한 영어 단어 멘토입니다.
+학습 수준은 CEFR A2-B1입니다.
 ${target}${excludeInstruction}
+
+단어 선택 규칙:
+- 일상과 사무 환경에서 흔히 쓰는 단어나 표현을 고르세요. 영어 빈도 상위 약 3000단어 안팎의 쉬운 단어여야 합니다.
+- 전문 용어, 학술적이거나 드문 단어, 기술 용어는 피하세요 (예: paradigm, synergy, empirical).
+
+예문 규칙:
+- example_sentence는 기초 어휘만 사용해 12단어 이하로 작성하세요.
+
+퀴즈 규칙 (quick_quiz 고정 형식):
+- question: 영어 단어의 뜻을 묻는 한국어 질문. 예: "<단어>"의 뜻은?
+- options: 한국어 뜻으로 된 보기 정확히 3개. 정답 1개와 서로 뚜렷이 다른 오답 2개 (유의어나 비슷한 뜻 금지).
+- answer_index: 정답 위치 (0~2). 정답 위치를 무작위로 섞으세요.
+- explanation: 한국어 해설.
 
 JSON만 반환하세요.
 {
@@ -118,6 +112,45 @@ JSON만 반환하세요.
 }
 words 배열 길이는 ${need}개입니다.
 `;
+}
+
+export async function generateStudyWords(options: {
+  count?: number;
+  category?: string;
+  word?: string;
+  exclude?: string[];
+} = {}): Promise<WordRow[]> {
+  const count = options.count ?? 3;
+  const category = options.category || "English";
+  const requestedWord = options.word ? normalizeWord(options.word) : "";
+  const blocked = new Set((options.exclude ?? []).map(normalizeWord).filter(Boolean));
+  if (requestedWord) blocked.delete(requestedWord);
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY가 없습니다.");
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
+    model: MODEL_NAME,
+    generationConfig: {
+      temperature: 0.5,
+      responseMimeType: "application/json",
+    },
+  });
+
+  const accepted: GeneratedWord[] = [];
+
+  for (let attempt = 0; attempt < 4 && accepted.length < count; attempt += 1) {
+    const need = count - accepted.length;
+    const excludeList = [...blocked].slice(-80);
+    const prompt = buildStudyWordsPrompt({
+      need,
+      category,
+      requestedWord: requestedWord ? options.word ?? requestedWord : undefined,
+      excludeList,
+    });
 
     let list: GeneratedWord[] | undefined;
     try {
