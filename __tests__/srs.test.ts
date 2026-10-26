@@ -73,7 +73,7 @@ vi.mock("@/lib/env-config", () => ({
   getVapidConfig: () => ({ email: "a@b.c", publicKey: "pub", privateKey: "priv" }),
 }));
 
-import { applyAnswer, applyOpened, intervalDays, type ProgressRow } from "@/lib/srs";
+import { applyAnswer, applyOpened, intervalDays, isDue, type ProgressRow } from "@/lib/srs";
 import { buildFallbackWords, orderProgress } from "@/lib/fallback-words";
 import { generateStudyWords } from "@/lib/generate-study-words";
 import { createDailySet } from "@/lib/daily-set";
@@ -132,21 +132,28 @@ describe("SRS interval math", () => {
   it("advances stages on correct answers and caps at 14 days", () => {
     let r = applyOpened(null, key, now);
     expect(r.stage).toBe(0);
-    expect(Date.parse(r.next_due_at!) - now.getTime()).toBe(DAY);
-    const days: number[] = [];
+    // now = 09:00 KST Oct 26 -> 00:00 KST Oct 27
+    expect(r.next_due_at).toBe("2026-10-26T15:00:00.000Z");
+    const due: string[] = [];
     for (let i = 0; i < 5; i += 1) {
       r = applyAnswer(r, key, true, now);
-      days.push((Date.parse(r.next_due_at!) - now.getTime()) / DAY);
+      due.push(r.next_due_at!);
     }
-    expect(days).toEqual([3, 7, 14, 14, 14]);
+    expect(due).toEqual([
+      "2026-10-28T15:00:00.000Z", // +3 days
+      "2026-11-01T15:00:00.000Z", // +7 days
+      "2026-11-08T15:00:00.000Z", // +14 days
+      "2026-11-08T15:00:00.000Z",
+      "2026-11-08T15:00:00.000Z",
+    ]);
     expect(r.correct_count).toBe(5);
   });
 
-  it("resets to stage 0 (due next day) on a wrong answer", () => {
+  it("resets to stage 0 (due 00:00 KST next day) on a wrong answer", () => {
     const r = applyAnswer(prog("apple", { stage: 3, correct_count: 4 }), key, false, now);
     expect(r.stage).toBe(0);
     expect(r.wrong_count).toBe(1);
-    expect(Date.parse(r.next_due_at!) - now.getTime()).toBe(DAY);
+    expect(r.next_due_at).toBe("2026-10-26T15:00:00.000Z");
   });
 
   it("opening an existing word keeps its stage and due date", () => {
@@ -170,6 +177,43 @@ describe("SRS interval math", () => {
     await expect(recordOpened("dev", "apple")).resolves.toBeUndefined();
     expect(await recordAnswer("dev", "apple", true)).toBe(false);
     expect(await getDueWords("dev", 2)).toEqual([]);
+  });
+});
+
+describe("SRS due at 00:00 KST", () => {
+  const at = (iso: string) => new Date(iso);
+
+  it("wrong answer at 18:05 KST is due 00:00 KST next day and due by 18:00 KST that day", () => {
+    const answered = at("2026-10-26T09:05:00Z"); // 18:05 KST
+    const r = applyAnswer(prog("apple", { stage: 2 }), key, false, answered);
+    expect(r.next_due_at).toBe("2026-10-26T15:00:00.000Z");
+    expect(isDue(r, at("2026-10-26T14:59:59Z"))).toBe(false);
+    expect(isDue(r, at("2026-10-26T15:00:00Z"))).toBe(true);
+    expect(isDue(r, at("2026-10-27T09:00:00Z"))).toBe(true); // 18:00 KST next day
+  });
+
+  it("23:59 KST and 00:00 KST fall on different KST dates", () => {
+    const late = applyAnswer(null, key, false, at("2026-10-26T14:59:00Z")); // 23:59 KST Oct 26
+    expect(late.next_due_at).toBe("2026-10-26T15:00:00.000Z"); // 00:00 KST Oct 27
+    const midnight = applyAnswer(null, key, false, at("2026-10-26T15:00:00Z")); // 00:00 KST Oct 27
+    expect(midnight.next_due_at).toBe("2026-10-27T15:00:00.000Z"); // 00:00 KST Oct 28
+  });
+
+  it("14:59Z vs 15:00Z crossing for opened words", () => {
+    expect(applyOpened(null, key, at("2026-10-26T14:59:59Z")).next_due_at).toBe("2026-10-26T15:00:00.000Z");
+    expect(applyOpened(null, key, at("2026-10-26T15:00:00Z")).next_due_at).toBe("2026-10-27T15:00:00.000Z");
+  });
+
+  it("uses 1,3,7,14 calendar-day intervals for each stage", () => {
+    const base = at("2026-10-26T09:05:00Z");
+    const expected = ["2026-10-26T15:00:00.000Z", "2026-10-28T15:00:00.000Z", "2026-11-01T15:00:00.000Z", "2026-11-08T15:00:00.000Z"];
+    expect([0, 1, 2, 3].map((stage) => applyAnswer(prog("apple", { stage: stage - 1 }), key, stage > 0, base).next_due_at)).toEqual(
+      expected,
+    );
+  });
+
+  it("isDue is false without a due date", () => {
+    expect(isDue(prog("apple"), now)).toBe(false);
   });
 });
 

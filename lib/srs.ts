@@ -1,6 +1,6 @@
+import { getKSTDateString, shiftIsoDate } from "@/lib/kst";
 export const STAGE_DAYS = [1, 3, 7, 14] as const;
 export const MAX_STAGE = STAGE_DAYS.length - 1;
-const DAY_MS = 86_400_000;
 
 export type ProgressRow = {
   user_key: string;
@@ -22,7 +22,10 @@ export function intervalDays(stage: number) {
 }
 
 function dueAt(stage: number, now: Date) {
-  return new Date(now.getTime() + intervalDays(stage) * DAY_MS).toISOString();
+  // 00:00 KST on the KST calendar date N days after now (KST = UTC+9, no DST).
+  const kstDate = getKSTDateString(now);
+  const target = shiftIsoDate(kstDate, intervalDays(stage));
+  return new Date(`${target}T00:00:00+09:00`).toISOString();
 }
 
 /** Correct answers advance one stage (capped); a wrong answer resets to stage 0 (due next day). */
