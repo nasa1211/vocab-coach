@@ -8,6 +8,7 @@ import HistoryList, { prefetchHistory, rememberHistoryQuiz, refreshHistory } fro
 import SettingsPanel from "@/components/SettingsPanel";
 import { getDeviceId } from "@/lib/device-id";
 import { clearDayCache, loadDayCache, readDayCache, writeDayCache } from "@/lib/day-cache";
+import { resyncPushSubscription } from "@/lib/push-resync";
 import { isDuplicatePush, sameQuiz, type AcceptedPush } from "@/lib/push-entry";
 import { getKSTDateString, isAwaitingPush, isSlotDue, isSlotReleased } from "@/lib/kst";
 import type { WordCardData } from "@/lib/word-card";
@@ -43,6 +44,7 @@ type StudyResponse = {
   currentSlot: number | null;
   slots: StudySlot[];
   card: WordCardData;
+  reviews?: WordCardData[];
   quizzed?: number[];
   finished?: number[];
   previousEvening?: PreviousEvening | null;
@@ -52,6 +54,7 @@ type QuizGate = {
   aboutSlot: number;
   destinationSlot: number;
   source?: "yesterday-evening";
+  reviewIndex?: number;
 };
 
 function pendingEveningQuiz(data: StudyResponse) {
@@ -469,6 +472,15 @@ export default function HomePage() {
   }, [loadStudy]);
 
   useEffect(() => {
+    void resyncPushSubscription();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void resyncPushSubscription();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
+  useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 15000);
     const onVisible = () => {
       if (document.visibilityState === "visible") setNow(new Date());
@@ -547,6 +559,16 @@ export default function HomePage() {
         if (response.ok) void refreshHistory();
       });
     };
+    if (gate.reviewIndex !== undefined) {
+      const card = current.reviews?.[gate.reviewIndex];
+      if (!card) return;
+      void fetch("/api/study/quizzed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ review: card.word, selected, device: getDeviceId() }),
+      });
+      return;
+    }
     if (gate.source === "yesterday-evening" && current.previousEvening) {
       if (current.previousEvening.quizzed) return;
       const next = {
@@ -572,6 +594,14 @@ export default function HomePage() {
   const finishQuiz = () => {
     const gate = quizRef.current;
     if (!gate) return;
+    const reviews = studyRef.current?.reviews ?? [];
+    const nextIndex = gate.reviewIndex === undefined ? 0 : gate.reviewIndex + 1;
+    if (gate.destinationSlot === 3 && !gate.source && nextIndex < reviews.length) {
+      const nextQuiz: QuizGate = { aboutSlot: gate.aboutSlot, destinationSlot: 3, reviewIndex: nextIndex };
+      quizRef.current = nextQuiz;
+      setQuiz(nextQuiz);
+      return;
+    }
     quizRef.current = null;
     setQuiz(null);
     showSlot(gate.destinationSlot);
@@ -584,10 +614,14 @@ export default function HomePage() {
   const nextDue = nextSlot ? isSlotReleased(nextSlot.time, Boolean(nextSlot.sent), now) : false;
   const closedNote = (label: string, time: string) =>
     isSlotDue(time, now) ? "알림이 오면 열립니다" : `${label} ${time}에 열립니다`;
-  const quizCard = quiz?.source === "yesterday-evening"
+  const quizCard = quiz?.reviewIndex !== undefined
+    ? study?.reviews?.[quiz.reviewIndex]
+    : quiz?.source === "yesterday-evening"
     ? study?.previousEvening?.card
     : study?.slots.find((item) => item.slot === quiz?.aboutSlot)?.card ?? study?.card;
-  const quizFromLabel = quiz?.source === "yesterday-evening"
+  const quizFromLabel = quiz?.reviewIndex !== undefined
+    ? "복습"
+    : quiz?.source === "yesterday-evening"
     ? "어제 저녁"
     : study?.slots.find((item) => item.slot === quiz?.aboutSlot)?.label ?? "이전";
   const quizDestination = study?.slots.find((item) => item.slot === quiz?.destinationSlot);
@@ -658,7 +692,7 @@ export default function HomePage() {
               </div>
             ) : study && quiz && quizCard?.quick_quiz ? (
               <ReviewQuiz
-                key={`${quiz.source ?? "slot"}-${quiz.aboutSlot}-${quiz.destinationSlot}`}
+                key={`${quiz.reviewIndex !== undefined ? `review${quiz.reviewIndex}` : quiz.source ?? "slot"}-${quiz.aboutSlot}-${quiz.destinationSlot}-${quizCard.word}`}
                 card={quizCard}
                 fromLabel={quizFromLabel}
                 toLabel={quizToLabel}
