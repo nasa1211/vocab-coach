@@ -68,6 +68,7 @@ export async function GET(req: NextRequest) {
       currentSlot: current?.slot ?? null,
       slots,
       card: toWordCard(cardRow),
+      reviews: plan.reviews.map(toWordCard),
       quizzed: plan.quizzed,
       finished: plan.finished,
       previousEvening: plan.previousEvening

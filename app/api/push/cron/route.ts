@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import webpush from "web-push";
-import { getTodayPlan, listSubscriptions, markSent, replaceSubscriptions } from "@/lib/app-state";
+import { getTodayPlan, listSubscriptions, markSent, removeSubscription } from "@/lib/app-state";
 import { getVapidConfig } from "@/lib/env-config";
 
 export const dynamic = "force-dynamic";
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
 
     let sent = 0;
     let failed = 0;
-    const kept = [];
+    const expired: string[] = [];
 
     for (const subscription of subscriptions) {
       try {
@@ -65,18 +65,15 @@ export async function GET(req: NextRequest) {
           payload
         );
         sent += 1;
-        kept.push(subscription);
       } catch (error) {
         failed += 1;
         const statusCode = typeof error === "object" && error && "statusCode" in error ? error.statusCode : 0;
-        if (statusCode !== 404 && statusCode !== 410) {
-          kept.push(subscription);
-        }
+        if (statusCode === 404 || statusCode === 410) expired.push(subscription.endpoint);
       }
     }
 
-    if (kept.length !== subscriptions.length) {
-      await replaceSubscriptions(kept);
+    for (const endpoint of expired) {
+      await removeSubscription(endpoint);
     }
     if (sent > 0) {
       await markSent(plan.date, slot);

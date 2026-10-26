@@ -114,6 +114,9 @@ words 배열 길이는 ${need}개입니다.
 `;
 }
 
+// One initial call plus at most one retry.
+export const MAX_ATTEMPTS = 2;
+
 export async function generateStudyWords(options: {
   count?: number;
   category?: string;
@@ -142,7 +145,7 @@ export async function generateStudyWords(options: {
 
   const accepted: GeneratedWord[] = [];
 
-  for (let attempt = 0; attempt < 4 && accepted.length < count; attempt += 1) {
+  for (let attempt = 0; attempt < MAX_ATTEMPTS && accepted.length < count; attempt += 1) {
     const need = count - accepted.length;
     const excludeList = [...blocked].slice(-80);
     const prompt = buildStudyWordsPrompt({

@@ -1,7 +1,10 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { DAILY_SLOTS, STATE_WORD } from "@/lib/study-plan";
 import { getKSTDateString, shiftIsoDate } from "@/lib/kst";
-import { fillKoreanPronunciations, generateStudyWords } from "@/lib/generate-study-words";
+import { fillKoreanPronunciations } from "@/lib/generate-study-words";
+import { createDailySet } from "@/lib/daily-set";
+import { findSeedRow, meaningPool, withQuiz } from "@/lib/fallback-words";
+import { getDueWords, recordAnswer, recordOpened } from "@/lib/word-progress";
 import { parseDeviceId } from "@/lib/device-id";
 import {
   claimLegacyProgress,
@@ -293,10 +296,10 @@ async function ensureTodayWords(state: AppState, date: string) {
   let dirty = false;
 
   if (picked.length === 0) {
-    const exclude = Object.values(state.dailyWords)
-      .flat()
-      .map((item) => item.word);
-    picked = await generateStudyWords({ count: 3, exclude });
+    const past = Object.entries(state.dailyWords)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .flatMap(([, rows]) => (Array.isArray(rows) ? rows : []));
+    picked = await createDailySet(date, past.map((item) => item.word), past);
     dirty = true;
   }
 
@@ -316,6 +319,50 @@ export async function getTodayPlan(date = getKSTDateString()) {
   return { date, slots: toTodaySlots(state, date, picked) };
 }
 
+function lookupRow(state: AppState, word: string): WordRow | null {
+  const key = word.trim().toLowerCase();
+  for (const rows of Object.values(state.dailyWords)) {
+    const found = Array.isArray(rows) ? rows.find((row) => row.word?.trim().toLowerCase() === key) : undefined;
+    if (found) return found;
+  }
+  return findSeedRow(word);
+}
+
+function reviewRow(state: AppState, word: string): WordRow | null {
+  const row = lookupRow(state, word);
+  if (!row) return null;
+  const pool = meaningPool(Object.values(state.dailyWords).flatMap((rows) => (Array.isArray(rows) ? rows : [])));
+  const withQuizRow = withQuiz(row, pool);
+  return Array.isArray(withQuizRow.quick_quiz?.options) && withQuizRow.quick_quiz.options.length > 0
+    ? withQuizRow
+    : null;
+}
+
+// Due SRS words (max 2) for the evening quiz. Empty if the table is missing.
+async function listReviewRows(state: AppState, deviceId: string, today: WordRow[]) {
+  const todayWords = new Set(today.map((row) => row.word.trim().toLowerCase()));
+  const due = await getDueWords(deviceId, 6);
+  const rows: WordRow[] = [];
+  for (const word of due) {
+    if (rows.length >= 2) break;
+    if (todayWords.has(word)) continue;
+    const row = reviewRow(state, word);
+    if (row) rows.push(row);
+  }
+  return rows;
+}
+
+export async function markReviewAnswer(word: string, selected: number, deviceId: string) {
+  const state = await loadState();
+  const row = reviewRow(state, word);
+  const options = row?.quick_quiz?.options;
+  if (!row || !Array.isArray(options)) return null;
+  if (!Number.isInteger(selected) || selected < 0 || selected >= options.length) return null;
+  const correct = selected === Number(row.quick_quiz?.answer_index);
+  const recorded = await recordAnswer(deviceId, row.word, correct, { onlyIfDue: true });
+  return { correct, recorded };
+}
+
 export async function getTodayStudy(
   deviceId: string,
   chooseSlot: (slots: TodaySlot[]) => number | null,
@@ -330,9 +377,11 @@ export async function getTodayStudy(
   const progress = state.devices[deviceId] ?? emptyProgress();
   const yesterday = shiftIsoDate(date, -1);
   const eveningRow = state.dailyWords[yesterday]?.[2] ?? null;
+  const reviews = await listReviewRows(state, deviceId, picked);
   return {
     date,
     slots,
+    reviews,
     currentSlot: slot,
     quizzed: progress.quizzed[date] ?? [],
     finished: progress.finished[date] ?? [],
@@ -364,6 +413,10 @@ async function markDevice(deviceId: string, date: string, slot: number, field: "
   state.devices[deviceId] = progress;
   const changed = markDeviceSlot(progress, field, date, slot);
   if (claimed || changed) await saveState(state);
+  if (field === "opened" && changed) {
+    const row = state.dailyWords[date]?.[slot - 1];
+    if (row) await recordOpened(deviceId, row.word);
+  }
 }
 
 export function markOpened(date: string, slot: number, deviceId: string) {
@@ -382,6 +435,7 @@ export async function markQuizAnswer(date: string, slot: number, selected: numbe
   const saved = saveDeviceQuiz(progress, date, slot, selected, options.length, Number(row?.quick_quiz?.answer_index));
   if (!saved) return null;
   if (claimed || saved.changed) await saveState(state);
+  if (saved.changed && row) await recordAnswer(deviceId, row.word, saved.result.correct);
   return saved.result;
 }
 
@@ -444,6 +498,8 @@ export async function saveSubscription(subscription: {
   keys: { p256dh: string; auth: string };
 }) {
   const state = await loadState();
+  const same = state.subscriptions.find((item) => item.endpoint === subscription.endpoint);
+  if (same && same.p256dh === subscription.keys.p256dh && same.auth === subscription.keys.auth) return;
   state.subscriptions = [
     ...state.subscriptions.filter((item) => item.endpoint !== subscription.endpoint),
     {
