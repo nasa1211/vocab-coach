@@ -31,9 +31,16 @@ async function storeAndReadBack(date: string, words: WordRow[]): Promise<WordRow
         { user_key: GLOBAL_KEY, study_date: date, words },
         { onConflict: "user_key,study_date", ignoreDuplicates: true },
       );
-    if (error) return words;
+    if (error) {
+      console.error("[daily-set] daily_sets upsert failed", { date, code: error.code, message: error.message });
+      return words;
+    }
     return (await readStored(date)) ?? words;
-  } catch {
+  } catch (err) {
+    console.error("[daily-set] daily_sets upsert threw", {
+      date,
+      message: err instanceof Error ? err.message : String(err),
+    });
     return words;
   }
 }
