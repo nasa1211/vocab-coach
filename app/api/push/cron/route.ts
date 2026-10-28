@@ -56,8 +56,12 @@ export async function GET(req: NextRequest) {
     const expired: string[] = [];
 
     for (const subscription of subscriptions) {
+      let host = "unknown";
       try {
-        await webpush.sendNotification(
+        host = new URL(subscription.endpoint).host;
+      } catch {}
+      try {
+        const result = await webpush.sendNotification(
           {
             endpoint: subscription.endpoint,
             keys: { p256dh: subscription.p256dh, auth: subscription.auth },
@@ -65,9 +69,12 @@ export async function GET(req: NextRequest) {
           payload
         );
         sent += 1;
+        console.log("[push/cron] sent", { host, statusCode: result.statusCode });
       } catch (error) {
         failed += 1;
         const statusCode = typeof error === "object" && error && "statusCode" in error ? error.statusCode : 0;
+        const body = typeof error === "object" && error && "body" in error ? String(error.body ?? "") : "";
+        console.error("[push/cron] send failed", { host, statusCode, body: body.slice(0, 300) });
         if (statusCode === 404 || statusCode === 410) expired.push(subscription.endpoint);
       }
     }
