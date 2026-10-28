@@ -15,6 +15,7 @@ async function readStored(date: string): Promise<WordRow[] | null> {
       .eq("user_key", GLOBAL_KEY)
       .eq("study_date", date)
       .maybeSingle();
+    if (error) console.error("[daily-set] read failed", { date, code: error.code, message: error.message });
     if (error || !data || !Array.isArray(data.words) || data.words.length === 0) return null;
     return data.words as WordRow[];
   } catch {
