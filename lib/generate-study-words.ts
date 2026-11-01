@@ -162,10 +162,15 @@ export async function generateStudyWords(options: {
       if (!responseText) continue;
       const parsed = JSON.parse(responseText) as { words?: GeneratedWord[] } | GeneratedWord[];
       list = Array.isArray(parsed) ? parsed : parsed.words;
-    } catch {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[generate-study-words] attempt failed", { attempt, message: message.replaceAll(apiKey, "[redacted]") });
       continue;
     }
-    if (!Array.isArray(list)) continue;
+    if (!Array.isArray(list)) {
+      console.error("[generate-study-words] attempt failed", { attempt, message: "response has no word list" });
+      continue;
+    }
 
     const fresh = takeNewWords(list, blocked, need).filter((item) => {
       if (!requestedWord) return true;

@@ -85,43 +85,49 @@ export function findSeedRow(word: string, seed: SeedWord[] = SEED_WORDS): WordRo
 }
 
 /**
- * Fallback daily set used when Gemini fails: progress words (wrong first, then stalest),
- * then past daily words (oldest first), then data/words.json only if still short.
+ * Fallback daily set used when Gemini fails: due progress words (wrong first, then stalest),
+ * then data/words.json rotated by date. Words shown in the last few days are never repeated.
  */
 export function buildFallbackWords({
   count,
   progress,
   pastWords,
   date,
+  recentWords = [],
+  now = new Date(),
   seed = SEED_WORDS,
 }: {
   count: number;
   progress: ProgressRow[];
   pastWords: WordRow[];
   date: string;
+  recentWords?: string[];
+  now?: Date;
   seed?: SeedWord[];
 }): WordRow[] {
   const known = new Map<string, WordRow>();
   for (const row of pastWords) known.set(normalizeProgressWord(row.word), row);
+  const recent = new Set(recentWords.map(normalizeProgressWord).filter(Boolean));
 
   const picked: WordRow[] = [];
   const used = new Set<string>();
   const take = (row: WordRow | undefined | null) => {
     if (!row || picked.length >= count) return;
     const key = normalizeProgressWord(row.word);
-    if (!key || used.has(key)) return;
+    if (!key || used.has(key) || recent.has(key)) return;
     used.add(key);
     picked.push(row);
   };
 
-  for (const item of orderProgress(progress)) {
+  const due = progress.filter((item) => !item.next_due_at || Date.parse(item.next_due_at) <= now.getTime());
+  for (const item of orderProgress(due)) {
     const key = normalizeProgressWord(item.word);
     take(known.get(key) ?? findSeedRow(key, seed));
   }
-  for (const row of pastWords) take(row);
 
   if (picked.length < count && seed.length > 0) {
-    const start = hash(date) % seed.length;
+    // Scramble so consecutive dates start far apart in the seed list.
+    const start = (Math.imul(hash(date), 2654435761) >>> 0) % seed.length;
     for (let i = 0; i < seed.length && picked.length < count; i += 1) {
       take(seedToRow(seed[(start + i) % seed.length]));
     }
