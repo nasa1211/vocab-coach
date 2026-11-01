@@ -186,13 +186,17 @@ export async function generateStudyWords(options: {
   return accepted.slice(0, count).map(asWordRow);
 }
 
+export function isMissingPron(value: string | null | undefined): boolean {
+  return value == null || value.trim() === "";
+}
+
 export async function fillKoreanPronunciations(rows: WordRow[]): Promise<WordRow[]> {
-  const missing = rows.filter((row) => row.word && row.korean_pronunciation == null);
+  const missing = rows.filter((row) => row.word && isMissingPron(row.korean_pronunciation));
   if (missing.length === 0) return rows;
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return rows.map((row) => ({ ...row, korean_pronunciation: row.korean_pronunciation ?? "" }));
+    return rows.map((row) => ({ ...row, korean_pronunciation: isMissingPron(row.korean_pronunciation) ? "" : row.korean_pronunciation }));
   }
 
   try {
@@ -217,9 +221,11 @@ ${missing.map((row) => `- ${row.word} ${row.phonetic || ""}`).join("\n")}`;
     return rows.map((row) => ({
       ...row,
       korean_pronunciation:
-        row.korean_pronunciation ?? byWord.get(row.word.trim().toLowerCase()) ?? "",
+        (isMissingPron(row.korean_pronunciation)
+          ? byWord.get(row.word.trim().toLowerCase())
+          : row.korean_pronunciation) ?? "",
     }));
   } catch {
-    return rows.map((row) => ({ ...row, korean_pronunciation: row.korean_pronunciation ?? "" }));
+    return rows.map((row) => ({ ...row, korean_pronunciation: isMissingPron(row.korean_pronunciation) ? "" : row.korean_pronunciation }));
   }
 }

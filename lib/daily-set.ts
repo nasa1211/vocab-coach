@@ -78,7 +78,15 @@ async function generate(date: string, exclude: string[], pastWords: WordRow[]): 
     const [progress, recentWords] = await Promise.all([listProgress(), readRecentWords(date)]);
     const fallback = buildFallbackWords({ count: 3, progress, pastWords, date, recentWords });
     if (fallback.length === 0) throw new Error("오늘의 단어를 만들지 못했습니다.");
-    return fallback;
+    try {
+      return await fillKoreanPronunciations(fallback);
+    } catch (fillErr) {
+      console.error("[daily-set] korean pronunciation fill failed", {
+        date,
+        message: fillErr instanceof Error ? fillErr.message : String(fillErr),
+      });
+      return fallback;
+    }
   }
 }
 

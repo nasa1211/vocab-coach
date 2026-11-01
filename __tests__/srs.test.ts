@@ -306,7 +306,7 @@ describe("Gemini single retry", () => {
   it("falls back to progress/past words without more Gemini calls", async () => {
     db.tables.word_progress = [prog("beta", { wrong_count: 2 })];
     const out = await createDailySet("2026-10-26", [], [row("alpha"), row("beta")]);
-    expect(generate.calls).toBe(2); // 2 attempts only; no extra pronunciation call on fallback
+    expect(generate.calls).toBe(3); // 2 attempts + 1 pronunciation fill on fallback
     expect(out).toHaveLength(3);
     expect(out[0].word).toBe("beta");
   });
@@ -319,7 +319,7 @@ describe("daily set dedupe", () => {
       createDailySet("2026-10-27", [], [row("alpha")]),
     ]);
     expect(a).toEqual(b);
-    expect(generate.calls).toBe(2); // one generation (2 attempts), not two
+    expect(generate.calls).toBe(3); // one generation (2 attempts) + one pronunciation fill, not two
     const calls = generate.calls;
     const again = await createDailySet("2026-10-27", [], []);
     expect(again).toEqual(a);
