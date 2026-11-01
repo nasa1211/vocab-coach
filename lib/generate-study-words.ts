@@ -58,22 +58,32 @@ export function buildStudyWordsPrompt({
   category,
   requestedWord,
   excludeList = [],
+  candidateCount,
 }: {
   need: number;
+  candidateCount?: number;
   category: string;
   requestedWord?: string;
   excludeList?: string[];
 }): string {
+  const ask = candidateCount ?? need;
   const target = requestedWord
     ? `요청된 단어("${requestedWord}")의 뜻과 예문을 작성하세요. 아래 예문/퀴즈 규칙은 이 단어에도 동일하게 적용하세요.`
-    : `성인 학습용 실용 영어 단어 또는 숙어 ${need}개를 서로 겹치지 않게 고르세요.`;
+    : `성인 학습용 실용 영어 단어 또는 숙어 ${ask}개를 서로 겹치지 않게 고르세요.`;
   const excludeInstruction =
-    excludeList.length > 0 ? `\n이미 학습한 단어는 제외하세요: ${excludeList.join(", ")}` : "";
+    excludeList.length > 0 ? `\n이미 학습한 단어는 제외하세요: ${excludeList.join(",")}` : "";
+  const diversityInstruction = requestedWord
+    ? ""
+    : `
+다양성 규칙:
+- 너무 흔하게 쓰이는 관용구와 구동사(phrasal verb)는 피하세요.
+- 품사와 주제를 다양하게 섞으세요 (사무, 여행, 건강, 돈, 감정, 집).
+- 뻔하지 않으면서도 A2-B1 수준에서 유용한 단어를 우선하세요.`;
 
   return `
 당신은 한국인 성인 직장인을 위한 영어 단어 멘토입니다.
 학습 수준은 CEFR A2-B1입니다.
-${target}${excludeInstruction}
+${target}${excludeInstruction}${diversityInstruction}
 
 단어 선택 규칙:
 - 일상과 사무 환경에서 흔히 쓰는 단어나 표현을 고르세요. 영어 빈도 상위 약 3000단어 안팎의 쉬운 단어여야 합니다.
@@ -110,12 +120,14 @@ JSON만 반환하세요.
     }
   ]
 }
-words 배열 길이는 ${need}개입니다.
+words 배열 길이는 ${ask}개입니다.
 `;
 }
 
 // One initial call plus at most one retry.
 export const MAX_ATTEMPTS = 2;
+export const MAX_EXCLUDE_ENTRIES = 1500;
+export const EXTRA_CANDIDATES = 7;
 
 export async function generateStudyWords(options: {
   count?: number;
@@ -138,7 +150,7 @@ export async function generateStudyWords(options: {
   const model = genAI.getGenerativeModel({
     model: MODEL_NAME,
     generationConfig: {
-      temperature: 0.5,
+      temperature: requestedWord ? 0.5 : 0.8,
       responseMimeType: "application/json",
     },
   });
@@ -147,9 +159,10 @@ export async function generateStudyWords(options: {
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS && accepted.length < count; attempt += 1) {
     const need = count - accepted.length;
-    const excludeList = [...blocked].slice(-80);
+    const excludeList = [...blocked].slice(-MAX_EXCLUDE_ENTRIES);
     const prompt = buildStudyWordsPrompt({
       need,
+      candidateCount: requestedWord ? need : need + EXTRA_CANDIDATES,
       category,
       requestedWord: requestedWord ? options.word ?? requestedWord : undefined,
       excludeList,
