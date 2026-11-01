@@ -1,5 +1,14 @@
-import { describe, expect, it } from "vitest";
-import { buildStudyWordsPrompt, takeNewWords } from "@/lib/generate-study-words";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const generateContent = vi.fn();
+const getGenerativeModel = vi.fn(() => ({ generateContent }));
+vi.mock("@google/generative-ai", () => ({
+  GoogleGenerativeAI: class {
+    getGenerativeModel = getGenerativeModel;
+  },
+}));
+
+import { EXTRA_CANDIDATES, buildStudyWordsPrompt, generateStudyWords, takeNewWords } from "@/lib/generate-study-words";
 
 describe("buildStudyWordsPrompt", () => {
   const base = { need: 3, category: "English" };
@@ -21,7 +30,7 @@ describe("buildStudyWordsPrompt", () => {
     expect(buildStudyWordsPrompt(base)).not.toContain("이미 학습한 단어");
     expect(buildStudyWordsPrompt({ ...base, excludeList: [] })).not.toContain("이미 학습한 단어");
     const p = buildStudyWordsPrompt({ ...base, excludeList: ["apple", "book"] });
-    expect(p).toContain("이미 학습한 단어는 제외하세요: apple, book");
+    expect(p).toContain("이미 학습한 단어는 제외하세요: apple,book");
   });
 
   it("handles requested word branch", () => {
@@ -42,5 +51,45 @@ describe("takeNewWords", () => {
     );
     expect(out.map((w) => w.word)).toEqual(["book", "cat"]);
     expect(blocked.has("book")).toBe(true);
+  });
+});
+
+describe("generateStudyWords", () => {
+  const reply = (words: string[]) => ({
+    response: { text: () => JSON.stringify({ words: words.map((word) => ({ word })) }) },
+  });
+
+  beforeEach(() => {
+    generateContent.mockReset();
+    getGenerativeModel.mockClear();
+    process.env.GEMINI_API_KEY = "test-key";
+  });
+
+  it("sends full compact exclude list and requests extra candidates", async () => {
+    const exclude = Array.from({ length: 200 }, (_, i) => `word${i}`);
+    generateContent.mockResolvedValue(reply(["alpha", "beta", "gamma"]));
+    await generateStudyWords({ count: 3, exclude });
+    const prompt = generateContent.mock.calls[0][0] as string;
+    expect(prompt).toContain(exclude.join(","));
+    expect(prompt).toContain(`words 배열 길이는 ${3 + EXTRA_CANDIDATES}개`);
+    expect(prompt).toContain("다양성 규칙");
+    const cfg = (getGenerativeModel.mock.calls[0] as unknown[])[0] as { generationConfig: { temperature: number } };
+    expect(cfg.generationConfig.temperature).toBe(0.8);
+  });
+
+  it("picks the first candidates that pass the filter, exactly count", async () => {
+    generateContent.mockResolvedValue(reply(["old1", "new1", "old2", "new2", "new3", "new4"]));
+    const rows = await generateStudyWords({ count: 3, exclude: ["old1", "old2"] });
+    expect(rows.map((r) => r.word)).toEqual(["new1", "new2", "new3"]);
+    expect(generateContent).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps requested word path at 1 candidate without diversity rule", async () => {
+    generateContent.mockResolvedValue(reply(["reply"]));
+    const rows = await generateStudyWords({ count: 1, word: "reply" });
+    expect(rows.map((r) => r.word)).toEqual(["reply"]);
+    const prompt = generateContent.mock.calls[0][0] as string;
+    expect(prompt).toContain("words 배열 길이는 1개");
+    expect(prompt).not.toContain("다양성 규칙");
   });
 });
