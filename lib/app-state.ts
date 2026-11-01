@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { DAILY_SLOTS, STATE_WORD } from "@/lib/study-plan";
 import { getKSTDateString, shiftIsoDate } from "@/lib/kst";
-import { fillKoreanPronunciations } from "@/lib/generate-study-words";
+import { fillKoreanPronunciations, isMissingPron } from "@/lib/generate-study-words";
 import { createDailySet } from "@/lib/daily-set";
 import { findSeedRow, meaningPool, withQuiz } from "@/lib/fallback-words";
 import { getDueWords, recordAnswer, recordOpened } from "@/lib/word-progress";
@@ -303,7 +303,7 @@ async function ensureTodayWords(state: AppState, date: string) {
     dirty = true;
   }
 
-  if (picked.some((row) => row.korean_pronunciation == null)) {
+  if (picked.some((row) => isMissingPron(row.korean_pronunciation))) {
     picked = await fillKoreanPronunciations(picked);
     dirty = true;
   }
