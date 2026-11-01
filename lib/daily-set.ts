@@ -46,12 +46,37 @@ async function storeAndReadBack(date: string, words: WordRow[]): Promise<WordRow
   }
 }
 
+const RECENT_DAYS = 5;
+
+/** Words of the shared daily sets from the RECENT_DAYS days before `date`; empty on any failure. */
+async function readRecentWords(date: string): Promise<string[]> {
+  try {
+    const since = new Date(Date.parse(`${date}T00:00:00Z`) - RECENT_DAYS * 86_400_000).toISOString().slice(0, 10);
+    const { data, error } = await supabaseAdmin
+      .from("daily_sets")
+      .select("words")
+      .eq("user_key", GLOBAL_KEY)
+      .gte("study_date", since)
+      .lt("study_date", date);
+    if (error || !Array.isArray(data)) return [];
+    return data.flatMap((set) =>
+      Array.isArray(set.words) ? (set.words as WordRow[]).map((row) => row?.word).filter((word): word is string => typeof word === "string") : [],
+    );
+  } catch {
+    return [];
+  }
+}
+
 async function generate(date: string, exclude: string[], pastWords: WordRow[]): Promise<WordRow[]> {
   try {
     return await fillKoreanPronunciations(await generateStudyWords({ count: 3, exclude }));
-  } catch {
-    const progress = await listProgress();
-    const fallback = buildFallbackWords({ count: 3, progress, pastWords, date });
+  } catch (err) {
+    console.error("[daily-set] gemini generation failed", {
+      date,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    const [progress, recentWords] = await Promise.all([listProgress(), readRecentWords(date)]);
+    const fallback = buildFallbackWords({ count: 3, progress, pastWords, date, recentWords });
     if (fallback.length === 0) throw new Error("오늘의 단어를 만들지 못했습니다.");
     return fallback;
   }

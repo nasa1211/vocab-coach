@@ -27,6 +27,8 @@ vi.mock("@/lib/supabase", () => {
       select: () => q,
       eq: (c: string, v: unknown) => (filters.push((r) => r[c] === v), q),
       lte: (c: string, v: string) => (filters.push((r) => String(r[c]) <= v), q),
+      gte: (c: string, v: string) => (filters.push((r) => String(r[c]) >= v), q),
+      lt: (c: string, v: string) => (filters.push((r) => String(r[c]) < v), q),
       order: (col: string, o: { ascending: boolean }) => ((order = { col, asc: o.ascending }), q),
       limit: (n: number) => ((max = n), q),
       maybeSingle: async () => {
@@ -218,7 +220,7 @@ describe("SRS due at 00:00 KST", () => {
 });
 
 describe("fallback ordering", () => {
-  it("puts wrong words first, then stalest, then past words, then seed top-up without duplicates", () => {
+  it("puts wrong words first, then stalest, then seed top-up without duplicates", () => {
     const past = [row("alpha"), row("beta"), row("gamma"), row("delta")];
     const progress = [
       prog("alpha", { last_seen_at: "2026-10-01T00:00:00Z" }),
@@ -237,8 +239,60 @@ describe("fallback ordering", () => {
 
     const topUp = buildFallbackWords({ count: 3, progress: [], pastWords: [row("alpha")], date: "2026-10-26" });
     expect(topUp).toHaveLength(3);
-    expect(topUp[0].word).toBe("alpha");
+    expect(topUp.map((w) => w.word)).not.toContain("alpha");
     expect(new Set(topUp.map((w) => w.word.toLowerCase())).size).toBe(3);
+  });
+});
+
+describe("buildFallbackWords", () => {
+  const date = "2026-10-26";
+  const words = (rows: WordRow[]) => rows.map((w) => w.word.toLowerCase());
+
+  it("excludes recent words from progress and seed", () => {
+    const base = buildFallbackWords({ count: 3, progress: [], pastWords: [], date, now });
+    const progress = [prog("alpha", { wrong_count: 3 })];
+    const out = buildFallbackWords({
+      count: 3,
+      progress,
+      pastWords: [row("alpha")],
+      date,
+      now,
+      recentWords: ["Alpha", ...base.map((w) => w.word)],
+    });
+    expect(out).toHaveLength(3);
+    expect(words(out)).not.toContain("alpha");
+    for (const w of words(base)) expect(words(out)).not.toContain(w);
+  });
+
+  it("skips progress words that are not due yet", () => {
+    const progress = [prog("alpha", { wrong_count: 2, next_due_at: new Date(now.getTime() + DAY).toISOString() })];
+    const out = buildFallbackWords({ count: 3, progress, pastWords: [row("alpha")], date, now });
+    expect(words(out)).not.toContain("alpha");
+  });
+
+  it("includes due progress words first (null or past next_due_at)", () => {
+    const progress = [
+      prog("alpha", { next_due_at: new Date(now.getTime() - DAY).toISOString(), last_seen_at: "2026-10-01T00:00:00Z" }),
+      prog("beta", { wrong_count: 1 }),
+    ];
+    const out = buildFallbackWords({ count: 3, progress, pastWords: [row("alpha"), row("beta")], date, now });
+    expect(words(out).slice(0, 2)).toEqual(["beta", "alpha"]);
+  });
+
+  it("gives different sets on different dates", () => {
+    const a = buildFallbackWords({ count: 3, progress: [], pastWords: [], date: "2026-10-26", now });
+    const b = buildFallbackWords({ count: 3, progress: [], pastWords: [], date: "2026-10-27", now });
+    expect(words(a)).not.toEqual(words(b));
+  });
+
+  it("always returns count unique words", () => {
+    for (const day of ["2026-10-26", "2026-10-27", "2026-11-01", "2027-01-15"]) {
+      for (const count of [1, 3, 5]) {
+        const out = buildFallbackWords({ count, progress: [prog("zzz-unknown")], pastWords: [], date: day, now });
+        expect(out).toHaveLength(count);
+        expect(new Set(words(out)).size).toBe(count);
+      }
+    }
   });
 });
 
@@ -271,6 +325,17 @@ describe("daily set dedupe", () => {
     expect(again).toEqual(a);
     expect(generate.calls).toBe(calls);
     expect(db.tables.daily_sets).toHaveLength(1);
+  });
+
+  it("fallback skips words from the previous 5 days' sets", async () => {
+    db.tables.word_progress = [prog("beta", { wrong_count: 2 })];
+    db.tables.daily_sets = [
+      { user_key: "global", study_date: "2026-10-25", words: [row("beta")] },
+      { user_key: "global", study_date: "2026-10-20", words: [row("alpha")] },
+    ];
+    const out = await createDailySet("2026-10-26", [], [row("alpha"), row("beta")]);
+    expect(out).toHaveLength(3);
+    expect(out.map((w) => w.word)).not.toContain("beta");
   });
 
   it("works as before when daily_sets is missing", async () => {
