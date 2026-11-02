@@ -5,6 +5,7 @@ import { fillKoreanPronunciations, isMissingPron } from "@/lib/generate-study-wo
 import { createDailySet } from "@/lib/daily-set";
 import { findSeedRow, meaningPool, withQuiz } from "@/lib/fallback-words";
 import { getDueWords, recordAnswer, recordOpened } from "@/lib/word-progress";
+import { parsePushSummary, type PushSummary } from "@/lib/push-message";
 import { parseDeviceId } from "@/lib/device-id";
 import {
   claimLegacyProgress,
@@ -36,6 +37,7 @@ type AppState = {
   dailyWords: Record<string, WordRow[]>;
   devices: Record<string, DeviceProgress>;
   legacyClaimed: boolean;
+  lastPush: PushSummary | null;
 };
 
 export type WordRow = {
@@ -69,6 +71,7 @@ function emptyState(): AppState {
     dailyWords: {},
     devices: {},
     legacyClaimed: false,
+    lastPush: null,
   };
 }
 
@@ -136,6 +139,7 @@ function parseState(nuance: string | null): AppState {
       dailyWords: parsed.dailyWords && typeof parsed.dailyWords === "object" ? parsed.dailyWords : {},
       devices: parseDevices(parsed.devices),
       legacyClaimed: parsed.legacyClaimed === true,
+      lastPush: parsePushSummary(parsed.lastPush),
     };
   } catch {
     return emptyState();
@@ -194,6 +198,7 @@ async function saveState(state: AppState) {
   state.devices = { ...current.devices, ...state.devices };
   state.sent = unionSlots(current.sent, state.sent);
   state.dailyWords = { ...current.dailyWords, ...state.dailyWords };
+  state.lastPush = state.lastPush ?? current.lastPush;
   if (current.legacyClaimed) {
     state.legacyClaimed = true;
     state.opened = {};
@@ -403,6 +408,12 @@ export async function markSent(date: string, slot: number) {
   if (marks.has(slot)) return;
   marks.add(slot);
   state.sent[date] = [...marks];
+  await saveState(state);
+}
+
+export async function recordPushSummary(summary: PushSummary) {
+  const state = await loadState();
+  state.lastPush = summary;
   await saveState(state);
 }
 

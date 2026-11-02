@@ -654,6 +654,8 @@ export default function HomePage() {
                       key={slot.slot}
                       type="button"
                       disabled={conceal}
+                      aria-label={`${slot.label} ${slot.time} 단어${selected ? ", 현재 선택됨" : ""}`}
+                      aria-current={selected ? "true" : undefined}
                       onClick={() => openSlot(slot.slot)}
                       className={`rounded-2xl border px-2 py-2 text-left transition-colors ${
                         conceal

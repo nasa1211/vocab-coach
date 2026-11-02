@@ -55,15 +55,15 @@ export async function POST(req: NextRequest) {
     });
 
     const prompt = `Analyze the uploaded image (book page, email, document, or sign). 
-Extract ONE key high-value English word or business idiom that is most useful for adult learners.
+Extract ONE key high-value English word or everyday casual idiom that is most useful for adult learners.
 
 Respond STRICTLY in JSON format matching this schema:
 {
   "word": "Extracted word or phrase",
   "phonetic": "/Phonetic symbol/",
-  "meaning": "한국어 핵심 뜻 (직장인/성인 맞춤)",
-  "category": "Business / Daily / Idiom 중 적절한 카테고리",
-  "nuance": "사전적 의미와 실제 쓰임새의 차이 및 비즈니스 뉘앙스 설명 (한국어 2-3문장)",
+  "meaning": "한국어 핵심 뜻 (일상 회화 맞춤)",
+  "category": "Daily / Casual / Idiom 중 적절한 카테고리",
+  "nuance": "사전적 의미와 실제 쓰임새의 차이 및 일상 회화 뉘앙스 설명 (한국어 2-3문장)",
   "example_sentence": "이미지 맥락 또는 실전에서 쓸 수 있는 영어 예문",
   "example_translation": "예문 한국어 번역",
   "speaking_tip": "원어민처럼 자연스럽게 발음하거나 사용하는 팁",

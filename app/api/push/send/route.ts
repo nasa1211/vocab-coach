@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
     }
 
     const payload = JSON.stringify({
-      title: title || "☕ 출근길 3분 단어 코치",
-      body: body || "오늘의 쉬운 실전 영어 단어를 확인해보세요!",
+      title: title || "오늘의 영어 단어",
+      body: body || "오늘의 영어 단어를 확인해 보세요.",
       icon: "/icons/icon-192x192.png",
       data: {
         url: url || "/",

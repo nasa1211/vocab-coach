@@ -44,7 +44,7 @@ export default function SettingsPanel() {
     <div className="animate-fadeIn space-y-6">
       <div className="px-1">
         <h2 className="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white">
-          <span>⚙️</span>
+          <span aria-hidden="true">⚙️</span>
           <span>설정</span>
         </h2>
         <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">화면 테마, 글자 크기, 알림을 조절합니다.</p>
@@ -52,11 +52,13 @@ export default function SettingsPanel() {
 
       <div className="space-y-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
         <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">🌙 다크 모드</span>
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">다크 모드</span>
           <button
             type="button"
             onClick={() => setTheme(isDark ? "light" : "dark")}
-            aria-label="다크 모드 토글"
+            role="switch"
+            aria-checked={isDark}
+            aria-label="다크 모드"
             className={`flex h-6 w-12 cursor-pointer items-center rounded-full p-1 transition-colors duration-300 ${
               isDark ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-700"
             }`}

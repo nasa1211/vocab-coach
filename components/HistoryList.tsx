@@ -166,7 +166,7 @@ export default function HistoryList() {
   if (days.length === 0) {
     return (
       <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center dark:border-slate-800 dark:bg-slate-900 sm:p-10">
-        <span className="text-4xl">🕒</span>
+        <span className="text-4xl" aria-hidden="true">🕒</span>
         <h2 className="mt-3 text-base font-bold text-slate-800 dark:text-slate-100">지난 단어가 없습니다</h2>
         <p className="mx-auto mt-2 max-w-xs text-xs leading-relaxed text-slate-500 dark:text-slate-400">
           오늘 배운 단어는 내일부터 이곳에 쌓입니다.

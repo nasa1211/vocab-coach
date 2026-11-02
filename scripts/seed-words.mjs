@@ -47,8 +47,8 @@ async function seedDatabase(targetCount = 50) {
 
   for (let i = 0; i < targetCount; i++) {
     const prompt = `
-당신은 바쁜 성인을 위한 실전 비즈니스 영단어 멘토입니다.
-직장인에게 유용한 비즈니스/이메일/회의 실전 영단어나 숙어(Idiom) 1개를 새로 선정하세요.
+당신은 바쁜 성인을 위한 일상 회화 영단어 멘토입니다.
+일상 대화에서 자연스럽게 쓰는 캐주얼 영단어나 숙어(Idiom) 1개를 새로 선정하세요.
 
 [🚨 절대 금지 단어 목록]
 다음 단어들은 이미 DB에 있으므로 절대로 선택하지 마세요:
@@ -59,8 +59,8 @@ ${history.slice(-100).join(', ')}
   "word": "단어 또는 숙어명",
   "phonetic": "발음기호 (예: /fəʊkəs/)",
   "meaning": "핵심 한글 뜻",
-  "category": "Business",
-  "nuance": "실전 비즈니스 뉘앙스 및 사전적 뜻과의 차이점",
+  "category": "Daily",
+  "nuance": "일상 회화 뉘앙스 및 사전적 뜻과의 차이점",
   "example_sentence": "실전 영문 예문",
   "example_translation": "자연스러운 한글 번역",
   "speaking_tip": "원어민 발음 및 연음 팁",
