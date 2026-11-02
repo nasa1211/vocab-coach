@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import webpush from "web-push";
 import { getTodayPlan, listSubscriptions, markSent, recordPushSummary, removeSubscription } from "@/lib/app-state";
-import { buildDailyPushMessage, buildPushSummary, pushHost, type PushResult } from "@/lib/push-message";
+import { buildPushSummary, pushHost, type PushResult } from "@/lib/push-message";
 import { getVapidConfig } from "@/lib/env-config";
 
 export const dynamic = "force-dynamic";
@@ -47,10 +47,9 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const message = buildDailyPushMessage(plan.slots.map((entry) => entry.row));
     const payload = JSON.stringify({
-      title: message.title,
-      body: message.body,
+      title: item.row.word,
+      body: (item.row.example_sentence || item.row.meaning || "").slice(0, 180),
       data: {
         url: `${req.nextUrl.origin}/?tab=today&slot=${slot}&date=${plan.date}`,
       },
