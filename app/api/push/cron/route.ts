@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import webpush from "web-push";
-import { getTodayPlan, listSubscriptions, markSent, removeSubscription } from "@/lib/app-state";
+import { getTodayPlan, listSubscriptions, markSent, recordPushSummary, removeSubscription } from "@/lib/app-state";
+import { buildDailyPushMessage, buildPushSummary, pushHost, type PushResult } from "@/lib/push-message";
 import { getVapidConfig } from "@/lib/env-config";
 
 export const dynamic = "force-dynamic";
@@ -40,12 +41,16 @@ export async function GET(req: NextRequest) {
         message: "저장된 푸시 구독이 없습니다.",
         slot,
         word: item.row.word,
+        sent: 0,
+        failed: 0,
+        results: [],
       });
     }
 
+    const message = buildDailyPushMessage(plan.slots.map((entry) => entry.row));
     const payload = JSON.stringify({
-      title: item.row.word,
-      body: (item.row.example_sentence || item.row.meaning || "").slice(0, 180),
+      title: message.title,
+      body: message.body,
       data: {
         url: `${req.nextUrl.origin}/?tab=today&slot=${slot}&date=${plan.date}`,
       },
@@ -54,12 +59,10 @@ export async function GET(req: NextRequest) {
     let sent = 0;
     let failed = 0;
     const expired: string[] = [];
+    const results: PushResult[] = [];
 
     for (const subscription of subscriptions) {
-      let host = "unknown";
-      try {
-        host = new URL(subscription.endpoint).host;
-      } catch {}
+      const host = pushHost(subscription.endpoint);
       try {
         const result = await webpush.sendNotification(
           {
@@ -69,10 +72,13 @@ export async function GET(req: NextRequest) {
           payload
         );
         sent += 1;
+        results.push({ host, statusCode: result.statusCode });
         console.log("[push/cron] sent", { host, statusCode: result.statusCode });
       } catch (error) {
         failed += 1;
-        const statusCode = typeof error === "object" && error && "statusCode" in error ? error.statusCode : 0;
+        const statusCode =
+          typeof error === "object" && error && "statusCode" in error ? Number(error.statusCode) || 0 : 0;
+        results.push({ host, statusCode });
         const body = typeof error === "object" && error && "body" in error ? String(error.body ?? "") : "";
         console.error("[push/cron] send failed", { host, statusCode, body: body.slice(0, 300) });
         if (statusCode === 404 || statusCode === 410) expired.push(subscription.endpoint);
@@ -86,12 +92,19 @@ export async function GET(req: NextRequest) {
       await markSent(plan.date, slot);
     }
 
+    try {
+      await recordPushSummary(buildPushSummary(plan.date, slot, results, sent, failed));
+    } catch (error) {
+      console.error("[push/cron] summary save failed", error instanceof Error ? error.message : "unknown");
+    }
+
     return NextResponse.json({
       success: sent > 0,
       slot,
       word: item.row.word,
       sent,
       failed,
+      results,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "푸시 발송에 실패했습니다.";

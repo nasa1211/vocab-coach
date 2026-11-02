@@ -69,7 +69,7 @@ export function buildStudyWordsPrompt({
   const ask = candidateCount ?? need;
   const target = requestedWord
     ? `요청된 단어("${requestedWord}")의 뜻과 예문을 작성하세요. 아래 예문/퀴즈 규칙은 이 단어에도 동일하게 적용하세요.`
-    : `성인 학습용 실용 영어 단어 또는 숙어 ${ask}개를 서로 겹치지 않게 고르세요.`;
+    : `일상 대화에서 자주 쓰는 캐주얼 영어 단어 또는 숙어 ${ask}개를 서로 겹치지 않게 고르세요.`;
   const excludeInstruction =
     excludeList.length > 0 ? `\n이미 학습한 단어는 제외하세요: ${excludeList.join(",")}` : "";
   const diversityInstruction = requestedWord
@@ -77,20 +77,20 @@ export function buildStudyWordsPrompt({
     : `
 다양성 규칙:
 - 너무 흔하게 쓰이는 관용구와 구동사(phrasal verb)는 피하세요.
-- 품사와 주제를 다양하게 섞으세요 (사무, 여행, 건강, 돈, 감정, 집).
+- 품사와 주제를 다양하게 섞으세요 (친구와 대화, 여행, 음식, 건강, 취미, 감정, 집, 쇼핑).
 - 뻔하지 않으면서도 A2-B1 수준에서 유용한 단어를 우선하세요.`;
 
   return `
-당신은 한국인 성인 직장인을 위한 영어 단어 멘토입니다.
+당신은 한국인 성인을 위한 일상 회화 영어 단어 멘토입니다.
 학습 수준은 CEFR A2-B1입니다.
 ${target}${excludeInstruction}${diversityInstruction}
 
 단어 선택 규칙:
-- 일상과 사무 환경에서 흔히 쓰는 단어나 표현을 고르세요. 영어 빈도 상위 약 3000단어 안팎의 쉬운 단어여야 합니다.
+- 친구, 가족, 동네, 카페, 여행 같은 일상 대화에서 흔히 쓰는 자연스러운 단어나 표현을 고르세요. 딱딱한 비즈니스·사무 표현은 피하세요. 영어 빈도 상위 약 3000단어 안팎의 쉬운 단어여야 합니다.
 - 전문 용어, 학술적이거나 드문 단어, 기술 용어는 피하세요 (예: paradigm, synergy, empirical).
 
 예문 규칙:
-- example_sentence는 기초 어휘만 사용해 12단어 이하로 작성하세요.
+- example_sentence는 기초 어휘만 사용해 12단어 이하의 자연스러운 구어체 일상 대화 문장으로 작성하세요.
 
 퀴즈 규칙 (quick_quiz 고정 형식):
 - question: 영어 단어의 뜻을 묻는 한국어 질문. 예: "<단어>"의 뜻은?
@@ -107,7 +107,7 @@ JSON만 반환하세요.
       "korean_pronunciation": "한글 발음. 철자가 아니라 소리 나는 대로. 예: 터치 베이스",
       "meaning": "핵심 한글 뜻",
       "category": "${category}",
-      "nuance": "실전에서 어떻게 쓰이는지 한국어 설명",
+      "nuance": "일상 대화에서 어떤 느낌으로 쓰이는지 한국어 설명",
       "example_sentence": "영어 예문",
       "example_translation": "예문 한글 번역",
       "speaking_tip": "발음 팁",

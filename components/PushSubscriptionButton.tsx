@@ -139,6 +139,7 @@ export default function PushSubscriptionButton() {
       <p className="text-xs text-slate-500 dark:text-slate-400">아침 8시 · 낮 1시 · 저녁 6시</p>
       <button
         type="button"
+        aria-pressed={isSubscribed}
         onClick={isSubscribed ? handleUnsubscribe : handleSubscribe}
         disabled={loading}
         className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${

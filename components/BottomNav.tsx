@@ -60,6 +60,7 @@ export default function BottomNav({
 
   return (
     <nav
+      aria-label="하단 메뉴"
       className={`fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur-md transition-transform duration-300 ease-in-out dark:border-slate-800 dark:bg-slate-900/95 ios-safe-bottom ${
         isDesktop || showBottomNav ? "translate-y-0" : "translate-y-full"
       }`}
@@ -71,6 +72,8 @@ export default function BottomNav({
             <button
               key={tab.id}
               type="button"
+              aria-label={`${tab.label} 탭`}
+              aria-current={selected ? "page" : undefined}
               onClick={() => onChange(tab.id)}
               className={`flex h-full cursor-pointer flex-col items-center justify-center transition-all ${
                 selected
@@ -78,7 +81,7 @@ export default function BottomNav({
                   : "text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
               }`}
             >
-              <span className="text-xl">{tab.icon}</span>
+              <span className="text-xl" aria-hidden="true">{tab.icon}</span>
               <span className="mt-0.5 text-[11px] font-bold">{tab.label}</span>
             </button>
           );

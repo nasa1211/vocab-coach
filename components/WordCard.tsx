@@ -22,11 +22,13 @@ export default function WordCard({ data, waitingLabel }: WordCardProps) {
       <div>
         <div className="flex items-center justify-between mb-4">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-medium uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
+            <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
             {data.category}
           </span>
           <button
+            type="button"
             onClick={() => speakEnglish(data.word, 0.86)}
+            aria-label={`${data.word} 발음 듣기`}
             className="rounded-full bg-slate-100 p-2.5 text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-900 active:scale-95 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
             title="발음 듣기"
           >
@@ -58,8 +60,11 @@ export default function WordCard({ data, waitingLabel }: WordCardProps) {
         </div>
 
         {/* 3. 탭 네비게이션 */}
-        <div className={`mb-5 grid gap-1 rounded-xl bg-slate-100 p-1 text-xs font-medium text-slate-500 dark:bg-slate-950 dark:text-slate-400 ${tabGridClass}`}>
+        <div role="tablist" aria-label="카드 내용 선택" className={`mb-5 grid gap-1 rounded-xl bg-slate-100 p-1 text-xs font-medium text-slate-500 dark:bg-slate-950 dark:text-slate-400 ${tabGridClass}`}>
           <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'example'}
             onClick={() => setActiveTab('example')}
             className={`py-2 rounded-lg transition-all ${
               activeTab === 'example'
@@ -71,6 +76,9 @@ export default function WordCard({ data, waitingLabel }: WordCardProps) {
           </button>
           {data.nuance ? (
             <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'nuance'}
               onClick={() => setActiveTab('nuance')}
               className={`py-2 rounded-lg transition-all ${
                 activeTab === 'nuance'
@@ -84,7 +92,7 @@ export default function WordCard({ data, waitingLabel }: WordCardProps) {
         </div>
 
         {/* 4. 탭 콘텐츠 영역 */}
-        <div className="flex min-h-[160px] flex-col justify-center rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800/80 dark:bg-slate-950/60">
+        <div role="tabpanel" className="flex min-h-[160px] flex-col justify-center rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800/80 dark:bg-slate-950/60">
           {/* [탭 1] 실전 예문 */}
           {activeTab === 'example' && (
             <div className="space-y-3">
@@ -114,11 +122,11 @@ export default function WordCard({ data, waitingLabel }: WordCardProps) {
             </div>
           )}
 
-          {/* [탭 2] 비즈니스 뉘앙스 */}
+          {/* [탭 2] 일상 뉘앙스 */}
           {activeTab === 'nuance' && (
             <div className="space-y-2">
               <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                🔍 왜 사전에 나오는 뜻과 다를까요?
+                왜 사전에 나오는 뜻과 다를까요?
               </p>
               <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
                 {data.nuance}
