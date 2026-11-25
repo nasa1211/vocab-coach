@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import webpush from "web-push";
 import { verifyServerSecret } from "@/lib/api-auth";
 import { getVapidConfig } from "@/lib/env-config";
+import { pushSendOptions, topicFromPushUrl } from "@/lib/push-message";
 
 let vapidInitialized = false;
 
@@ -34,16 +35,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const targetUrl = url || "/";
     const payload = JSON.stringify({
       title: title || "☕ 출근길 3분 단어 코치",
       body: body || "오늘의 쉬운 실전 영어 단어를 확인해보세요!",
       icon: "/icons/icon-192x192.png",
       data: {
-        url: url || "/",
+        url: targetUrl,
       },
     });
 
-    await webpush.sendNotification(subscription, payload);
+    await webpush.sendNotification(subscription, payload, pushSendOptions(topicFromPushUrl(targetUrl)));
 
     return NextResponse.json({ success: true, message: "푸시 알림 전송 성공" });
   } catch (error: unknown) {

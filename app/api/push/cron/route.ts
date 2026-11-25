@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import webpush from "web-push";
 import { getTodayPlan, listSubscriptions, markSent, recordPushSummary, removeSubscription } from "@/lib/app-state";
-import { buildPushSummary, pushHost, type PushResult } from "@/lib/push-message";
+import {
+  buildCronPushPayload,
+  buildPushSummary,
+  pushHost,
+  pushSendOptions,
+  pushTopic,
+  type PushResult,
+} from "@/lib/push-message";
 import { getVapidConfig } from "@/lib/env-config";
 
 export const dynamic = "force-dynamic";
@@ -47,13 +54,15 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const payload = JSON.stringify({
-      title: item.row.word,
-      body: (item.row.example_sentence || item.row.meaning || "").slice(0, 180),
-      data: {
-        url: `${req.nextUrl.origin}/?tab=today&slot=${slot}&date=${plan.date}`,
-      },
-    });
+    const pushUrl = `${req.nextUrl.origin}/?tab=today&slot=${slot}&date=${plan.date}`;
+    const payload = buildCronPushPayload(
+      item.row.word,
+      (item.row.example_sentence || item.row.meaning || "").slice(0, 180),
+      pushUrl,
+      plan.date,
+      slot
+    );
+    const sendOptions = pushSendOptions(pushTopic(plan.date, slot));
 
     let sent = 0;
     let failed = 0;
@@ -68,7 +77,8 @@ export async function GET(req: NextRequest) {
             endpoint: subscription.endpoint,
             keys: { p256dh: subscription.p256dh, auth: subscription.auth },
           },
-          payload
+          payload,
+          sendOptions
         );
         sent += 1;
         results.push({ host, statusCode: result.statusCode });

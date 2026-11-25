@@ -21,6 +21,7 @@ self.addEventListener('push', function (event) {
       url: data.data?.url || '/',
     },
   };
+  if (typeof data.tag === 'string') options.tag = data.tag;
 
   event.waitUntil(self.registration.showNotification(data.title || '영어 단어', options));
 });

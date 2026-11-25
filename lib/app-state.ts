@@ -23,7 +23,26 @@ export type PushSubscriptionRecord = {
   endpoint: string;
   p256dh: string;
   auth: string;
+  platform?: string;
+  userAgent?: string;
+  lastSeenAt?: string;
+  createdAt?: string;
 };
+
+export const SUBSCRIPTION_META_REFRESH_MS = 5 * 60 * 1000;
+
+export function subscriptionNeedsMetaRefresh(
+  existing: PushSubscriptionRecord,
+  incoming: { platform?: string; userAgent?: string },
+  now = Date.now()
+) {
+  if (incoming.platform && incoming.platform !== existing.platform) return true;
+  if (incoming.userAgent && incoming.userAgent !== existing.userAgent) return true;
+  if (!existing.lastSeenAt) return true;
+  const last = Date.parse(existing.lastSeenAt);
+  if (!Number.isFinite(last)) return true;
+  return now - last > SUBSCRIPTION_META_REFRESH_MS;
+}
 
 export type { QuizResult };
 
@@ -507,16 +526,38 @@ export async function listPastDays(deviceId: string, today = getKSTDateString())
 export async function saveSubscription(subscription: {
   endpoint: string;
   keys: { p256dh: string; auth: string };
+  platform?: string;
+  userAgent?: string;
+  lastSeenAt?: string;
 }) {
   const state = await loadState();
   const same = state.subscriptions.find((item) => item.endpoint === subscription.endpoint);
-  if (same && same.p256dh === subscription.keys.p256dh && same.auth === subscription.keys.auth) return;
+  const seenAt = subscription.lastSeenAt ?? new Date().toISOString();
+  const meta = {
+    platform: subscription.platform,
+    userAgent: subscription.userAgent,
+    lastSeenAt: seenAt,
+  };
+
+  if (same && same.p256dh === subscription.keys.p256dh && same.auth === subscription.keys.auth) {
+    if (!subscriptionNeedsMetaRefresh(same, meta)) return;
+    state.subscriptions = state.subscriptions.map((item) =>
+      item.endpoint === subscription.endpoint
+        ? { ...item, ...meta, createdAt: item.createdAt ?? seenAt }
+        : item
+    );
+    await saveState(state);
+    return;
+  }
+
   state.subscriptions = [
     ...state.subscriptions.filter((item) => item.endpoint !== subscription.endpoint),
     {
       endpoint: subscription.endpoint,
       p256dh: subscription.keys.p256dh,
       auth: subscription.keys.auth,
+      ...meta,
+      createdAt: same?.createdAt ?? seenAt,
     },
   ];
   await saveState(state);
