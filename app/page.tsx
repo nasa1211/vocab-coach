@@ -11,6 +11,7 @@ import { clearDayCache, loadDayCache, readDayCache, writeDayCache } from "@/lib/
 import { resyncPushSubscription } from "@/lib/push-resync";
 import { isDuplicatePush, sameQuiz, type AcceptedPush } from "@/lib/push-entry";
 import { getKSTDateString, isAwaitingPush, isSlotDue, isSlotReleased } from "@/lib/kst";
+import { pushTag } from "@/lib/push-message";
 import type { WordCardData } from "@/lib/word-card";
 
 const STUDY_CACHE_KEY = "day_study_v4";
@@ -160,12 +161,27 @@ function readLocation() {
   return { tab, query, loadStudy: tab === "today" };
 }
 
-async function clearAppNotifications() {
+function notificationMatchesSlot(note: Notification, date: string, slot: number) {
+  const wantTag = pushTag(date, slot);
+  if (note.tag === wantTag) return true;
+  const url = note.data?.url;
+  if (typeof url !== "string") return false;
+  try {
+    const u = new URL(url, window.location.origin);
+    return u.searchParams.get("date") === date && Number(u.searchParams.get("slot") || "") === slot;
+  } catch {
+    return false;
+  }
+}
+
+async function clearAppNotifications(target?: { date: string; slot: number }) {
   if (!("serviceWorker" in navigator)) return;
   const registration = await navigator.serviceWorker.getRegistration();
   if (!registration) return;
   const notes = await registration.getNotifications();
-  for (const note of notes) note.close();
+  for (const note of notes) {
+    if (!target || notificationMatchesSlot(note, target.date, target.slot)) note.close();
+  }
 }
 
 export default function HomePage() {
@@ -220,7 +236,8 @@ export default function HomePage() {
     if (!entry?.clear) return;
     entry.clear = false;
     void forgetStoredPushIntent();
-    void clearAppNotifications();
+    const slot = entry.slot;
+    if (slot) void clearAppNotifications({ date: getKSTDateString(), slot });
   };
 
   const rememberOpened = (slot: number) => {

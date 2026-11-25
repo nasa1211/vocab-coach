@@ -29,11 +29,12 @@ describe("POST /api/push/test", () => {
   it("저장된 구독에 고정 문구를 보낸다", async () => {
     const res = await POST(req({ subscription: { endpoint: "https://push/known" }, title: "hack" }));
     expect(res.status).toBe(200);
-    const [sub, payload] = sendNotification.mock.calls[0];
+    const [sub, payload, options] = sendNotification.mock.calls[0];
     expect(sub).toEqual({ endpoint: "https://push/known", keys: { p256dh: "p", auth: "a" } });
     const parsed = JSON.parse(payload);
     expect(parsed.title).toBe("학습 알림이 켜졌습니다");
     expect(parsed.data.url).toBe("/?tab=today");
+    expect(options).toEqual({ urgency: "high", topic: "vocab-subscribe-test" });
   });
 
   it("등록되지 않은 구독은 404", async () => {

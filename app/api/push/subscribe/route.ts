@@ -1,17 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { removeSubscription, saveSubscription } from "@/lib/app-state";
+import { detectPushPlatform, truncateUserAgent } from "@/lib/push-platform";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const { subscription } = await req.json();
+    const body = await req.json();
+    const { subscription, client } = body ?? {};
 
     if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
       return NextResponse.json({ error: "유효하지 않은 구독 정보입니다." }, { status: 400 });
     }
 
-    await saveSubscription(subscription);
+    const userAgent = truncateUserAgent(req.headers.get("user-agent") ?? "");
+    const platform = detectPushPlatform(userAgent, client);
+
+    await saveSubscription({
+      endpoint: subscription.endpoint,
+      keys: { p256dh: subscription.keys.p256dh, auth: subscription.keys.auth },
+      platform,
+      userAgent,
+    });
 
     return NextResponse.json({
       success: true,

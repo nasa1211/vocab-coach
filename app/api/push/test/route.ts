@@ -4,16 +4,20 @@ import { getClientIp } from "@/lib/api-auth";
 import { listSubscriptions } from "@/lib/app-state";
 import { getVapidConfig } from "@/lib/env-config";
 import { rateLimit } from "@/lib/rate-limit";
+import { pushSendOptions } from "@/lib/push-message";
 
 export const dynamic = "force-dynamic";
 
 export const TEST_PUSH_RATE_LIMIT = { requests: 3, window: 60 * 1000 };
 
+const TEST_TOPIC = "vocab-subscribe-test";
+
 const TEST_PAYLOAD = {
   title: "학습 알림이 켜졌습니다",
   body: "아침 8시, 낮 1시, 저녁 6시에 단어와 예문이 도착합니다.",
   icon: "/icons/icon-192x192.png",
-  data: { url: "/?tab=today" },
+  tag: TEST_TOPIC,
+  data: { url: "/?tab=today", tag: TEST_TOPIC },
 };
 
 let vapidInitialized = false;
@@ -48,7 +52,8 @@ export async function POST(req: NextRequest) {
     ensureVapidInit();
     await webpush.sendNotification(
       { endpoint: saved.endpoint, keys: { p256dh: saved.p256dh, auth: saved.auth } },
-      JSON.stringify(TEST_PAYLOAD)
+      JSON.stringify(TEST_PAYLOAD),
+      pushSendOptions(TEST_TOPIC)
     );
 
     return NextResponse.json({ success: true });

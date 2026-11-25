@@ -20,6 +20,10 @@ function isIos() {
 const iosInstallMessage =
   "허용 창은 홈 화면 아이콘으로 연 뒤에만 나옵니다. 이미 추가한 아이콘은 지우고, 사파리에서 이 페이지를 다시 홈 화면에 추가한 다음 그 아이콘으로 여세요.";
 
+function subscribeBody(subscription: PushSubscription) {
+  return { subscription, client: { standalone: isHomeScreenApp() } };
+}
+
 export default function PushSubscriptionButton() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -36,7 +40,7 @@ export default function PushSubscriptionButton() {
       await fetch("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscription }),
+        body: JSON.stringify(subscribeBody(subscription)),
       });
     });
   }, []);
@@ -79,7 +83,7 @@ export default function PushSubscriptionButton() {
       const saveRes = await fetch("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscription }),
+        body: JSON.stringify(subscribeBody(subscription)),
       });
 
       if (!saveRes.ok) {
